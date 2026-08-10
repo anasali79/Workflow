@@ -488,9 +488,28 @@ export default function WorkflowDetailPage({ params }: Props) {
   // Trigger management state
   const [showAddTrigger, setShowAddTrigger] = useState(false);
   const [newTriggerType, setNewTriggerType] = useState("manual");
-  const [newTriggerCron, setNewTriggerCron] = useState("0 9 * * 1");
   const [addingTrigger, setAddingTrigger] = useState(false);
   const [deletingTriggerId, setDeletingTriggerId] = useState<string | null>(null);
+  const [copiedTriggerId, setCopiedTriggerId] = useState<string | null>(null);
+
+  // Schedule picker state
+  const [schedPreset, setSchedPreset] = useState("every_day");
+  const [schedHour, setSchedHour] = useState("09");      // hour part HH
+  const [schedMin, setSchedMin] = useState("00");        // minute part MM
+  const [schedDay, setSchedDay] = useState("1");         // day of week (0=Sun,1=Mon…)
+
+  function buildCron(): string {
+    switch (schedPreset) {
+      case "every_5min":  return "*/5 * * * *";
+      case "every_10min": return "*/10 * * * *";
+      case "every_15min": return "*/15 * * * *";
+      case "every_30min": return "*/30 * * * *";
+      case "every_hour":  return `0 * * * *`;
+      case "every_day":   return `${parseInt(schedMin)} ${parseInt(schedHour)} * * *`;
+      case "every_week":  return `${parseInt(schedMin)} ${parseInt(schedHour)} * * ${schedDay}`;
+      default:            return "0 9 * * *";
+    }
+  }
 
   const { data, loading, refetch } = useQuery(WORKFLOW_DETAIL_QUERY, { variables: { workflowId } });
   const [updateStepConfig] = useMutation(UPDATE_STEP_CONFIG_MUTATION);
@@ -608,7 +627,7 @@ export default function WorkflowDetailPage({ params }: Props) {
     try {
       const config: Record<string, unknown> = {};
       if (newTriggerType === "scheduled") {
-        config.cron = newTriggerCron.trim() || "0 9 * * 1";
+        config.cron = buildCron();
       }
       const res = await fetch("/api/add-trigger", {
         method: "POST",
@@ -619,7 +638,6 @@ export default function WorkflowDetailPage({ params }: Props) {
       if (!res.ok) throw new Error(resData.message || "Failed to add trigger");
       setShowAddTrigger(false);
       setNewTriggerType("manual");
-      setNewTriggerCron("0 9 * * 1");
       await refetch();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to add trigger");
@@ -786,25 +804,71 @@ export default function WorkflowDetailPage({ params }: Props) {
                 </FormField>
 
                 {newTriggerType === "scheduled" && (
-                  <FormField label="Cron Schedule" hint="e.g. every Monday 9am">
-                    <input
-                      className="wf-input"
-                      type="text"
-                      value={newTriggerCron}
-                      onChange={(e) => setNewTriggerCron(e.target.value)}
-                      placeholder="0 9 * * 1"
-                    />
-                    <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
-                      Format: minute hour day month weekday &nbsp;·&nbsp;
-                      <span style={{ fontFamily: "monospace" }}>0 9 * * 1</span> = every Monday at 9am
-                    </p>
-                  </FormField>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <FormField label="Run this workflow…">
+                      <select
+                        className="wf-input"
+                        value={schedPreset}
+                        onChange={(e) => setSchedPreset(e.target.value)}
+                      >
+                        <optgroup label="⏱ Every N minutes">
+                          <option value="every_5min">Every 5 minutes</option>
+                          <option value="every_10min">Every 10 minutes</option>
+                          <option value="every_15min">Every 15 minutes</option>
+                          <option value="every_30min">Every 30 minutes</option>
+                        </optgroup>
+                        <optgroup label="🕐 Hourly / Daily / Weekly">
+                          <option value="every_hour">Every hour (at :00)</option>
+                          <option value="every_day">Every day at a specific time</option>
+                          <option value="every_week">Every week on a specific day</option>
+                        </optgroup>
+                      </select>
+                    </FormField>
+
+                    {(schedPreset === "every_day" || schedPreset === "every_week") && (
+                      <div style={{ display: "grid", gridTemplateColumns: schedPreset === "every_week" ? "1fr 1fr 1fr" : "1fr 1fr", gap: "10px" }}>
+                        {schedPreset === "every_week" && (
+                          <FormField label="Day of week">
+                            <select className="wf-input" value={schedDay} onChange={(e) => setSchedDay(e.target.value)}>
+                              <option value="0">Sunday</option>
+                              <option value="1">Monday</option>
+                              <option value="2">Tuesday</option>
+                              <option value="3">Wednesday</option>
+                              <option value="4">Thursday</option>
+                              <option value="5">Friday</option>
+                              <option value="6">Saturday</option>
+                            </select>
+                          </FormField>
+                        )}
+                        <FormField label="Hour (24h)">
+                          <select className="wf-input" value={schedHour} onChange={(e) => setSchedHour(e.target.value)}>
+                            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map(h => (
+                              <option key={h} value={h}>{h}:00</option>
+                            ))}
+                          </select>
+                        </FormField>
+                        <FormField label="Minute">
+                          <select className="wf-input" value={schedMin} onChange={(e) => setSchedMin(e.target.value)}>
+                            {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => (
+                              <option key={m} value={m}>:{m}</option>
+                            ))}
+                          </select>
+                        </FormField>
+                      </div>
+                    )}
+
+                    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "8px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)" }}>Cron:</span>
+                      <code style={{ fontSize: "12px", color: "var(--accent-hover)", fontFamily: "monospace" }}>{buildCron()}</code>
+                    </div>
+                  </div>
                 )}
 
                 {newTriggerType === "webhook" && (
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px" }}>
-                    <p style={{ fontSize: "11px", color: "var(--muted)" }}>
-                      🔗 A webhook URL will be auto-assigned. Use the <strong>Webhook Trigger</strong> backend endpoint to call it with your payload.
+                  <div style={{ background: "var(--surface)", border: "1px solid #10b98130", borderRadius: "8px", padding: "12px" }}>
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--green)", marginBottom: "4px" }}>🔗 How it works</p>
+                    <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: "1.6" }}>
+                      After adding, you&apos;ll get a <strong>unique webhook URL</strong> that you can call from anywhere (Postman, another service, etc.) with a <code>POST</code> request to instantly run this workflow.
                     </p>
                   </div>
                 )}
@@ -837,7 +901,38 @@ export default function WorkflowDetailPage({ params }: Props) {
                     manual: "Manual", webhook: "Webhook", scheduled: "Schedule", database_event: "DB Event",
                   };
                   const isDeleting = deletingTriggerId === tr.id;
+                  const isCopied = copiedTriggerId === tr.id;
                   const cronVal = (tr.config as Record<string, unknown>)?.cron as string | undefined;
+
+                  // Build the friendly cron description
+                  function describeCron(cron: string): string {
+                    if (cron === "*/5 * * * *")  return "Every 5 minutes";
+                    if (cron === "*/10 * * * *") return "Every 10 minutes";
+                    if (cron === "*/15 * * * *") return "Every 15 minutes";
+                    if (cron === "*/30 * * * *") return "Every 30 minutes";
+                    if (cron === "0 * * * *")    return "Every hour";
+                    const parts = cron.split(" ");
+                    if (parts.length === 5) {
+                      const [m, h, , , dow] = parts;
+                      const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                      const timeStr = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                      if (dow === "*") return `Every day at ${timeStr}`;
+                      return `Every ${days[parseInt(dow)] ?? dow} at ${timeStr}`;
+                    }
+                    return cron;
+                  }
+
+                  // Webhook URL: POST /webhook/workflow/<triggerId>
+                  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
+                    `https://${process.env.NEXT_PUBLIC_NHOST_SUBDOMAIN}.functions.${process.env.NEXT_PUBLIC_NHOST_REGION}.nhost.run/v1`;
+                  const webhookUrl = `${backendBase}/webhook/workflow/${tr.id}`;
+
+                  function copyWebhookUrl() {
+                    navigator.clipboard.writeText(webhookUrl).then(() => {
+                      setCopiedTriggerId(tr.id);
+                      setTimeout(() => setCopiedTriggerId(null), 2000);
+                    });
+                  }
 
                   return (
                     <div
@@ -855,7 +950,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                               {TRIGGER_LABELS[tr.type] ?? tr.type}
                             </span>
                             {tr.type === "scheduled" && cronVal && (
-                              <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0, fontFamily: "monospace" }}>{cronVal}</p>
+                              <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>{describeCron(cronVal)}</p>
                             )}
                           </div>
                         </div>
@@ -884,6 +979,39 @@ export default function WorkflowDetailPage({ params }: Props) {
                           )}
                         </div>
                       </div>
+
+                      {/* Webhook URL box */}
+                      {tr.type === "webhook" && (
+                        <div style={{ marginTop: "10px", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px" }}>
+                          <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Webhook URL — POST here to trigger this workflow</p>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <code style={{
+                              flex: 1, fontSize: "10.5px", color: "var(--accent-hover)", fontFamily: "monospace",
+                              background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
+                              padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
+                            }}>
+                              {webhookUrl}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={copyWebhookUrl}
+                              style={{
+                                flexShrink: 0, padding: "6px 12px", borderRadius: "8px",
+                                border: isCopied ? "1px solid #10b981" : "1px solid var(--border-2)",
+                                background: isCopied ? "#10b98120" : "var(--bg-3)",
+                                color: isCopied ? "var(--green)" : "var(--muted)",
+                                fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                                transition: "all 0.2s",
+                              }}
+                            >
+                              {isCopied ? "✓ Copied!" : "📋 Copy"}
+                            </button>
+                          </div>
+                          <p style={{ fontSize: "10px", color: "var(--muted)", marginTop: "6px" }}>
+                            Add header: <code style={{ fontFamily: "monospace", color: "var(--foreground)" }}>x-webhook-secret: {"<your WEBHOOK_SECRET>"}</code>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
