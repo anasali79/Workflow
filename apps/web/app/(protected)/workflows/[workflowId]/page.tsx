@@ -926,12 +926,25 @@ export default function WorkflowDetailPage({ params }: Props) {
                   // Webhook URLs
                   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
                   const appWebhookUrl = `${appBaseUrl}/api/webhook/${tr.id}`;
+
+                  const nhostSubdomain = process.env.NEXT_PUBLIC_NHOST_SUBDOMAIN || "puwxmgwnewcpwjizqfqb";
+                  const nhostRegion = process.env.NEXT_PUBLIC_NHOST_REGION || "ap-south-1";
+                  const nhostWebhookUrl = `https://${nhostSubdomain}.functions.${nhostRegion}.nhost.run/v1/webhook-trigger?triggerId=${tr.id}`;
+
                   const webhookSecret = process.env.NEXT_PUBLIC_WEBHOOK_SECRET || "dev_webhook_secret_key_12345";
                   const isSecretCopied = copiedSecretId === tr.id;
+                  const isNhostCopied = copiedTriggerId === `nhost-${tr.id}`;
 
                   function copyWebhookUrl() {
                     navigator.clipboard.writeText(appWebhookUrl).then(() => {
                       setCopiedTriggerId(tr.id);
+                      setTimeout(() => setCopiedTriggerId(null), 2000);
+                    });
+                  }
+
+                  function copyNhostWebhookUrl() {
+                    navigator.clipboard.writeText(nhostWebhookUrl).then(() => {
+                      setCopiedTriggerId(`nhost-${tr.id}`);
                       setTimeout(() => setCopiedTriggerId(null), 2000);
                     });
                   }
@@ -992,14 +1005,44 @@ export default function WorkflowDetailPage({ params }: Props) {
                       {/* Webhook URL & Secret box */}
                       {tr.type === "webhook" && (
                         <div style={{ marginTop: "10px", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                          {/* URL section */}
+                          {/* Live Nhost Cloud Function URL */}
                           <div>
                             <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
-                              Webhook Endpoint URL (POST / GET)
+                              🌐 Nhost Live Cloud Function Webhook
                             </p>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <code style={{
                                 flex: 1, fontSize: "10.5px", color: "var(--accent-hover)", fontFamily: "monospace",
+                                background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
+                                padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
+                              }}>
+                                {nhostWebhookUrl}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={copyNhostWebhookUrl}
+                                style={{
+                                  flexShrink: 0, padding: "5px 10px", borderRadius: "8px",
+                                  border: isNhostCopied ? "1px solid #10b981" : "1px solid var(--border-2)",
+                                  background: isNhostCopied ? "#10b98120" : "var(--bg-3)",
+                                  color: isNhostCopied ? "var(--green)" : "var(--muted)",
+                                  fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                                  transition: "all 0.2s",
+                                }}
+                              >
+                                {isNhostCopied ? "✓ Copied!" : "📋 Copy Nhost URL"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Web App API Endpoint URL */}
+                          <div>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
+                              💻 App API Webhook Endpoint (POST / GET)
+                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <code style={{
+                                flex: 1, fontSize: "10.5px", color: "var(--foreground)", fontFamily: "monospace",
                                 background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
                                 padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
                               }}>
@@ -1017,7 +1060,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                                   transition: "all 0.2s",
                                 }}
                               >
-                                {isCopied ? "✓ Copied!" : "📋 Copy URL"}
+                                {isCopied ? "✓ Copied!" : "📋 Copy App URL"}
                               </button>
                             </div>
                           </div>
@@ -1025,7 +1068,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                           {/* Secret Header section */}
                           <div>
                             <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
-                              Required Security Header
+                              🔑 Required Security Header
                             </p>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <code style={{
