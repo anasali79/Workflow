@@ -25,9 +25,9 @@
 //   Invoke-WebRequest -Method POST http://localhost:1337/v1/functions/scheduled-trigger `
 //     -Headers @{"X-Scheduled-Secret"="<SCHEDULED_TRIGGER_SECRET>"}
 
-import { query, withTransaction } from "../../services/database/client.js";
-import { workflowEngine } from "../../services/workflow-engine/engine.js";
-import { logger } from "../../utils/logger.js";
+import { query, withTransaction } from "../services/database/client.js";
+import { workflowEngine } from "../services/workflow-engine/engine.js";
+import { logger } from "../utils/logger.js";
 import {
   errorResponse,
   successResponse,

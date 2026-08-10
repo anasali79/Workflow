@@ -24,10 +24,10 @@
  * can handle path params by parsing the URL manually.
  */
 
-import { queryOne } from "../../services/database/client.js";
-import { workflowEngine } from "../../services/workflow-engine/engine.js";
-import { AppError } from "../../utils/errors.js";
-import { logger } from "../../utils/logger.js";
+import { queryOne } from "../services/database/client.js";
+import { workflowEngine } from "../services/workflow-engine/engine.js";
+import { AppError } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 import {
   assertValidUuid,
   errorResponse,

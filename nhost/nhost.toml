@@ -1,0 +1,9 @@
+# Nhost configuration file for Nhost Cloud deployment
+[provider]
+name = "nhost"
+
+[functions]
+nodeVersion = 18
+
+[hasura]
+version = "v2.36.0"

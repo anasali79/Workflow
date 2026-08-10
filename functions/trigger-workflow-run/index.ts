@@ -19,8 +19,8 @@
  *   {{ACTION_BASE_URL}}/trigger-workflow-run
  */
 
-import { workflowEngine } from "../../services/workflow-engine/engine.js";
-import { logger } from "../../utils/logger.js";
+import { workflowEngine } from "../services/workflow-engine/engine.js";
+import { logger } from "../utils/logger.js";
 import {
   assertValidUuid,
   errorResponse,

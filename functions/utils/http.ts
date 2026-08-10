@@ -6,8 +6,8 @@
  * Hasura session-variable extraction across all functions.
  */
 
-import { AppError, isAppError } from "../../utils/errors.js";
-import { logger } from "../../utils/logger.js";
+import { AppError, isAppError } from "./errors.js";
+import { logger } from "./logger.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

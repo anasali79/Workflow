@@ -31,9 +31,9 @@
  * We use idempotency_key = "<event_id>" to prevent double execution.
  */
 
-import { query } from "../../services/database/client.js";
-import { workflowEngine } from "../../services/workflow-engine/engine.js";
-import { logger } from "../../utils/logger.js";
+import { query } from "../services/database/client.js";
+import { workflowEngine } from "../services/workflow-engine/engine.js";
+import { logger } from "../utils/logger.js";
 import {
   errorResponse,
   successResponse,
