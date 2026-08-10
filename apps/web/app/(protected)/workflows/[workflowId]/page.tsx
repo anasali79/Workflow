@@ -49,12 +49,12 @@ interface TriggerRecord {
 }
 
 const STEP_META: Record<string, { icon: string; label: string; badgeClass: string; desc: string }> = {
-  llm_call:           { icon: "🧠", label: "LLM Call",          badgeClass: "badge-purple", desc: "Calls AI model (Groq Llama 3.3 / GPT-4o) with custom prompts." },
-  http_request:       { icon: "🌐", label: "HTTP Request",       badgeClass: "badge-blue",   desc: "Calls external HTTP REST APIs (GET, POST, PUT, DELETE)." },
-  conditional_branch: { icon: "🔀", label: "Conditional Branch", badgeClass: "badge-amber",  desc: "Routes pipeline logic based on step outputs." },
-  approval_gate:      { icon: "🔒", label: "Approval Gate",      badgeClass: "badge-red",    desc: "Pauses execution until owner approves." },
-  notify:             { icon: "🔔", label: "Notify",             badgeClass: "badge-green",  desc: "Delivers live notifications to Slack webhooks or emails." },
-  db_write:           { icon: "💾", label: "DB Write",           badgeClass: "badge-gray",   desc: "Saves outputs directly into PostgreSQL database." },
+  llm_call: { icon: "🧠", label: "LLM Call", badgeClass: "badge-purple", desc: "Calls AI model (Groq Llama 3.3 / GPT-4o) with custom prompts." },
+  http_request: { icon: "🌐", label: "HTTP Request", badgeClass: "badge-blue", desc: "Calls external HTTP REST APIs (GET, POST, PUT, DELETE)." },
+  conditional_branch: { icon: "🔀", label: "Conditional Branch", badgeClass: "badge-amber", desc: "Routes pipeline logic based on step outputs." },
+  approval_gate: { icon: "🔒", label: "Approval Gate", badgeClass: "badge-red", desc: "Pauses execution until owner approves." },
+  notify: { icon: "🔔", label: "Notify", badgeClass: "badge-green", desc: "Delivers live notifications to Slack webhooks or emails." },
+  db_write: { icon: "💾", label: "DB Write", badgeClass: "badge-gray", desc: "Saves outputs directly into PostgreSQL database." },
 };
 
 const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
@@ -205,7 +205,7 @@ function HttpRequestForm({ config, onChange, disabled }: { config: Record<string
             disabled={disabled}
             onChange={(e) => set("method", e.target.value)}
           >
-            {["GET","POST","PUT","PATCH","DELETE"].map(m => <option key={m}>{m}</option>)}
+            {["GET", "POST", "PUT", "PATCH", "DELETE"].map(m => <option key={m}>{m}</option>)}
           </select>
         </FormField>
         <FormField label="Endpoint URL" hint="Supports {{variables}}">
@@ -702,8 +702,8 @@ export default function WorkflowDetailPage({ params }: Props) {
                     onChange={(e) => setNewStepType(e.target.value)}
                   >
                     {Object.entries(STEP_META).map(([type, meta]) => (
-                      <option key={type} value={type} disabled={["db_write","notify"].includes(type) && !isOwner}>
-                        {meta.icon} {meta.label}{["db_write","notify"].includes(type) && !isOwner ? " (Owner only)" : ""}
+                      <option key={type} value={type} disabled={["db_write", "notify"].includes(type) && !isOwner}>
+                        {meta.icon} {meta.label}{["db_write", "notify"].includes(type) && !isOwner ? " (Owner only)" : ""}
                       </option>
                     ))}
                   </select>
@@ -735,7 +735,7 @@ export default function WorkflowDetailPage({ params }: Props) {
             {/* Step Nodes List */}
             {steps.length === 0 ? (
               <div style={{ textAlign: "center", padding: "24px 0", color: "var(--muted)", fontSize: "12px" }}>
-                No steps added yet. Click "+ Add Step" above.
+                No steps added yet. Click &quot;+ Add Step&quot; above.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -868,7 +868,7 @@ export default function WorkflowDetailPage({ params }: Props) {
               <span style={{ fontSize: "42px" }}>👈</span>
               <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--foreground)" }}>Select a step to configure</p>
               <p style={{ fontSize: "13px", color: "var(--muted)", maxWidth: "280px" }}>
-                Click any step on the left pipeline panel to edit its parameters, or click <strong>"📊 View Runs"</strong> to view execution history.
+                Click any step on the left pipeline panel to edit its parameters, or click <strong>&quot;📊 View Runs&quot;</strong> to view execution history.
               </p>
             </div>
           )}
