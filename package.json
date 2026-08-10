@@ -12,7 +12,7 @@
     "dev": "npm run dev -w @workflow/web",
     "dev:server": "npm run dev -w @workflow/backend",
     "dev:all": "start \"Action Server\" cmd /k npm run dev:server && npm run dev",
-    "build": "npm run build -w @workflow/web",
+    "build": "npm run build -w @workflow/backend && npm run build -w @workflow/web",
     "lint": "npm run lint -w @workflow/web",
     "test": "npm run test -w @workflow/backend",
     "typecheck": "npm run typecheck -w @workflow/web && npm run typecheck -w @workflow/backend",
