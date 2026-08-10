@@ -74,11 +74,11 @@ const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
   },
   conditional_branch: {
     sourceStepPosition: 0,
-    path: "output.text",
+    path: "text",
     operator: "contains",
     expectedValue: "urgent",
     trueBranch: { action: "continue" },
-    falseBranch: { action: "skip_to_position", position: 5 },
+    falseBranch: { action: "skip_next_n", count: 1 },
   },
   approval_gate: { message: "Require human approval before proceeding." },
   notify: { provider: "slack", messageTemplate: "Workflow {{workflowName}} completed: {{previousOutput}}", webhookUrl: "" },
@@ -243,90 +243,130 @@ function HttpRequestForm({ config, onChange, disabled }: { config: Record<string
   );
 }
 
-// ── 3. Conditional Branch Visual Form ──
-function ConditionalBranchForm({ config, onChange, disabled }: { config: Record<string, unknown>; onChange: (c: Record<string, unknown>) => void; disabled: boolean }) {
+// ── 3. Conditional Branch Visual Form (Simplified) ──
+function ConditionalBranchForm({ config, onChange, disabled, steps }: { config: Record<string, unknown>; onChange: (c: Record<string, unknown>) => void; disabled: boolean; steps?: Array<{ position: number; name: string }> }) {
   const set = (key: string, val: unknown) => onChange({ ...config, [key]: val });
   const trueBranch = (config.trueBranch as Record<string, unknown>) ?? { action: "continue" };
-  const falseBranch = (config.falseBranch as Record<string, unknown>) ?? { action: "skip_to_position", position: 5 };
+  const falseBranch = (config.falseBranch as Record<string, unknown>) ?? { action: "continue" };
+
+  const operatorLabels: Record<string, string> = {
+    contains: "contains the word",
+    equals: "is exactly equal to",
+    not_equals: "is NOT equal to",
+    not_contains: "does NOT contain",
+    gt: "is greater than (number)",
+    lt: "is less than (number)",
+    exists: "exists (not empty)",
+  };
+
+  const branchActionLabel: Record<string, string> = {
+    continue: "✅ Continue to the next step",
+    fail: "🛑 Stop & fail the workflow",
+    skip_next_n: "⏭ Skip next step",
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-        <FormField label="Source Step Position" hint="Step to evaluate">
-          <input
-            className="wf-input" type="number" min="0"
-            value={Number(config.sourceStepPosition ?? 0)}
-            disabled={disabled}
-            onChange={(e) => set("sourceStepPosition", parseInt(e.target.value) || 0)}
-          />
-        </FormField>
-        <FormField label="JSON Path" hint="e.g. output.text or status">
-          <input
-            className="wf-input" type="text"
-            value={String(config.path ?? "")}
-            disabled={disabled}
-            onChange={(e) => set("path", e.target.value)}
-            placeholder="output.text"
-          />
-        </FormField>
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+      {/* IF block */}
+      <div style={{ background: "var(--bg-3)", border: "1px solid var(--border-2)", borderRadius: "14px", padding: "18px" }}>
+        <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--foreground)", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ background: "var(--accent)", color: "white", borderRadius: "6px", padding: "2px 8px", fontSize: "12px" }}>IF</span>
+          Check this condition…
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <FormField label="Which step's output?">
+            <select
+              className="wf-input"
+              value={String(config.sourceStepPosition ?? 0)}
+              disabled={disabled}
+              onChange={(e) => set("sourceStepPosition", parseInt(e.target.value))}
+            >
+              {steps && steps.length > 0 ? (
+                steps.map((s) => (
+                  <option key={s.position} value={s.position}>
+                    Step {s.position + 1}: {s.name}
+                  </option>
+                ))
+              ) : (
+                <option value={0}>Step 1 (position 0)</option>
+              )}
+            </select>
+          </FormField>
+
+          <FormField label="Look at the field" hint='e.g.  text  or  status'>
+            <input
+              className="wf-input" type="text"
+              value={String(config.path ?? "")}
+              disabled={disabled}
+              onChange={(e) => set("path", e.target.value)}
+              placeholder="text"
+            />
+          </FormField>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <FormField label="Condition">
+              <select
+                className="wf-input"
+                value={String(config.operator ?? "contains")}
+                disabled={disabled}
+                onChange={(e) => set("operator", e.target.value)}
+              >
+                {Object.entries(operatorLabels).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </FormField>
+            {config.operator !== "exists" && (
+              <FormField label="Value to match">
+                <input
+                  className="wf-input" type="text"
+                  value={String(config.expectedValue ?? "")}
+                  disabled={disabled}
+                  onChange={(e) => set("expectedValue", e.target.value)}
+                  placeholder="e.g. urgent"
+                />
+              </FormField>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-        <FormField label="Operator">
+      {/* THEN / ELSE blocks */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+        <div style={{ background: "var(--green-dim)", border: "1px solid #10b98130", borderRadius: "14px", padding: "16px" }}>
+          <p style={{ fontSize: "12px", fontWeight: 800, color: "var(--green)", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ background: "#10b981", color: "white", borderRadius: "6px", padding: "2px 8px", fontSize: "11px" }}>THEN</span>
+            Condition is TRUE
+          </p>
           <select
             className="wf-input"
-            value={String(config.operator ?? "contains")}
+            value={String(trueBranch.action ?? "continue")}
             disabled={disabled}
-            onChange={(e) => set("operator", e.target.value)}
+            onChange={(e) => set("trueBranch", { action: e.target.value, ...(e.target.value === "skip_next_n" ? { count: 1 } : {}) })}
           >
-            <option value="contains">contains</option>
-            <option value="equals">equals</option>
-            <option value="not_equals">not equals</option>
-            <option value="starts_with">starts with</option>
-            <option value="greater_than">greater than</option>
+            {Object.entries(branchActionLabel).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
           </select>
-        </FormField>
-        <FormField label="Expected Value">
-          <input
-            className="wf-input" type="text"
-            value={String(config.expectedValue ?? "")}
-            disabled={disabled}
-            onChange={(e) => set("expectedValue", e.target.value)}
-            placeholder="urgent"
-          />
-        </FormField>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        <div style={{ background: "var(--green-dim)", border: "1px solid #10b98130", borderRadius: "12px", padding: "14px" }}>
-          <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--green)", marginBottom: "8px" }}>✅ If Condition is TRUE</p>
-          <FormField label="Action">
-            <select
-              className="wf-input"
-              value={String(trueBranch.action ?? "continue")}
-              disabled={disabled}
-              onChange={(e) => set("trueBranch", { ...trueBranch, action: e.target.value })}
-            >
-              <option value="continue">Continue to next step</option>
-              <option value="skip_to_position">Skip to position</option>
-              <option value="fail">Fail workflow</option>
-            </select>
-          </FormField>
         </div>
-        <div style={{ background: "var(--red-dim)", border: "1px solid #ef444430", borderRadius: "12px", padding: "14px" }}>
-          <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--red)", marginBottom: "8px" }}>❌ If Condition is FALSE</p>
-          <FormField label="Action">
-            <select
-              className="wf-input"
-              value={String(falseBranch.action ?? "skip_to_position")}
-              disabled={disabled}
-              onChange={(e) => set("falseBranch", { ...falseBranch, action: e.target.value })}
-            >
-              <option value="continue">Continue to next step</option>
-              <option value="skip_to_position">Skip to position</option>
-              <option value="fail">Fail workflow</option>
-            </select>
-          </FormField>
+
+        <div style={{ background: "var(--red-dim)", border: "1px solid #ef444430", borderRadius: "14px", padding: "16px" }}>
+          <p style={{ fontSize: "12px", fontWeight: 800, color: "var(--red)", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ background: "#ef4444", color: "white", borderRadius: "6px", padding: "2px 8px", fontSize: "11px" }}>ELSE</span>
+            Condition is FALSE
+          </p>
+          <select
+            className="wf-input"
+            value={String(falseBranch.action ?? "continue")}
+            disabled={disabled}
+            onChange={(e) => set("falseBranch", { action: e.target.value, ...(e.target.value === "skip_next_n" ? { count: 1 } : {}) })}
+          >
+            {Object.entries(branchActionLabel).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
@@ -445,6 +485,13 @@ export default function WorkflowDetailPage({ params }: Props) {
   const [newStepType, setNewStepType] = useState("llm_call");
   const [newStepName, setNewStepName] = useState("");
 
+  // Trigger management state
+  const [showAddTrigger, setShowAddTrigger] = useState(false);
+  const [newTriggerType, setNewTriggerType] = useState("manual");
+  const [newTriggerCron, setNewTriggerCron] = useState("0 9 * * 1");
+  const [addingTrigger, setAddingTrigger] = useState(false);
+  const [deletingTriggerId, setDeletingTriggerId] = useState<string | null>(null);
+
   const { data, loading, refetch } = useQuery(WORKFLOW_DETAIL_QUERY, { variables: { workflowId } });
   const [updateStepConfig] = useMutation(UPDATE_STEP_CONFIG_MUTATION);
   const [toggleTrigger] = useMutation(TOGGLE_TRIGGER_MUTATION);
@@ -554,6 +601,52 @@ export default function WorkflowDetailPage({ params }: Props) {
     }
   }
 
+  async function handleAddTrigger(e: React.FormEvent) {
+    e.preventDefault();
+    if (isViewer || addingTrigger) return;
+    setAddingTrigger(true);
+    try {
+      const config: Record<string, unknown> = {};
+      if (newTriggerType === "scheduled") {
+        config.cron = newTriggerCron.trim() || "0 9 * * 1";
+      }
+      const res = await fetch("/api/add-trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflow_id: workflowId, type: newTriggerType, config }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || "Failed to add trigger");
+      setShowAddTrigger(false);
+      setNewTriggerType("manual");
+      setNewTriggerCron("0 9 * * 1");
+      await refetch();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to add trigger");
+    } finally {
+      setAddingTrigger(false);
+    }
+  }
+
+  async function handleDeleteTrigger(triggerId: string) {
+    if (isViewer) return;
+    setDeletingTriggerId(triggerId);
+    try {
+      const res = await fetch("/api/delete-trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger_id: triggerId }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || "Failed to delete trigger");
+      await refetch();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete trigger");
+    } finally {
+      setDeletingTriggerId(null);
+    }
+  }
+
   async function handleRun() {
     if (isViewer) return;
     setTriggering(true);
@@ -648,25 +741,152 @@ export default function WorkflowDetailPage({ params }: Props) {
 
           {/* Triggers */}
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "18px" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>⚡</span> Triggers
-            </h3>
-            {triggers.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>No triggers configured.</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>⚡</span> Triggers
+              </h3>
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddTrigger((v) => !v)}
+                  style={{
+                    background: "var(--bg-3)", border: "1px solid var(--border-2)",
+                    borderRadius: "8px", padding: "4px 10px", fontSize: "12px",
+                    fontWeight: 600, color: "var(--accent-hover)", cursor: "pointer",
+                  }}
+                >
+                  {showAddTrigger ? "× Cancel" : "+ Add"}
+                </button>
+              )}
+            </div>
+
+            {/* Add Trigger inline form */}
+            {showAddTrigger && (
+              <form
+                onSubmit={handleAddTrigger}
+                style={{
+                  background: "var(--bg-3)", border: "1px solid var(--accent-glow)",
+                  borderRadius: "12px", padding: "14px", marginBottom: "14px",
+                  display: "flex", flexDirection: "column", gap: "10px",
+                }}
+              >
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--accent-hover)", textTransform: "uppercase" }}>New Trigger</p>
+
+                <FormField label="Trigger Type">
+                  <select
+                    className="wf-input"
+                    value={newTriggerType}
+                    onChange={(e) => setNewTriggerType(e.target.value)}
+                  >
+                    <option value="manual">🖱 Manual — run by clicking button</option>
+                    <option value="webhook">🔗 Webhook — triggered by external HTTP call</option>
+                    <option value="scheduled">🕐 Schedule — runs on a cron schedule</option>
+                    <option value="database_event">🗄 Database Event — triggered by DB change</option>
+                  </select>
+                </FormField>
+
+                {newTriggerType === "scheduled" && (
+                  <FormField label="Cron Schedule" hint="e.g. every Monday 9am">
+                    <input
+                      className="wf-input"
+                      type="text"
+                      value={newTriggerCron}
+                      onChange={(e) => setNewTriggerCron(e.target.value)}
+                      placeholder="0 9 * * 1"
+                    />
+                    <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
+                      Format: minute hour day month weekday &nbsp;·&nbsp;
+                      <span style={{ fontFamily: "monospace" }}>0 9 * * 1</span> = every Monday at 9am
+                    </p>
+                  </FormField>
+                )}
+
+                {newTriggerType === "webhook" && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px" }}>
+                    <p style={{ fontSize: "11px", color: "var(--muted)" }}>
+                      🔗 A webhook URL will be auto-assigned. Use the <strong>Webhook Trigger</strong> backend endpoint to call it with your payload.
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="submit" disabled={addingTrigger}
+                  style={{
+                    background: addingTrigger ? "var(--surface-2)" : "var(--accent)",
+                    color: "white", border: "none",
+                    borderRadius: "8px", padding: "7px 14px", fontSize: "12px",
+                    fontWeight: 600, cursor: addingTrigger ? "not-allowed" : "pointer",
+                    alignSelf: "flex-end",
+                  }}
+                >
+                  {addingTrigger ? "Adding…" : "✓ Add Trigger"}
+                </button>
+              </form>
+            )}
+
+            {/* Triggers list */}
+            {triggers.length === 0 && !showAddTrigger ? (
+              <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>No triggers yet. Click <strong>+ Add</strong> to configure one.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {triggers.map((tr) => (
-                  <div key={tr.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid var(--border)" }}>
-                    <div>
-                      <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--foreground)", textTransform: "capitalize" }}>{tr.type} Trigger</span>
+                {triggers.map((tr) => {
+                  const TRIGGER_ICONS: Record<string, string> = {
+                    manual: "🖱", webhook: "🔗", scheduled: "🕐", database_event: "🗄",
+                  };
+                  const TRIGGER_LABELS: Record<string, string> = {
+                    manual: "Manual", webhook: "Webhook", scheduled: "Schedule", database_event: "DB Event",
+                  };
+                  const isDeleting = deletingTriggerId === tr.id;
+                  const cronVal = (tr.config as Record<string, unknown>)?.cron as string | undefined;
+
+                  return (
+                    <div
+                      key={tr.id}
+                      style={{
+                        background: "var(--bg-3)", border: "1px solid var(--border)",
+                        borderRadius: "10px", padding: "10px 12px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "16px" }}>{TRIGGER_ICONS[tr.type] ?? "⚡"}</span>
+                          <div>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>
+                              {TRIGGER_LABELS[tr.type] ?? tr.type}
+                            </span>
+                            {tr.type === "scheduled" && cronVal && (
+                              <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0, fontFamily: "monospace" }}>{cronVal}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            type="button" disabled={isViewer}
+                            onClick={() => handleToggleTrigger(tr.id, tr.enabled)}
+                            className={`toggle ${tr.enabled ? "on" : ""}`}
+                          />
+                          {!isViewer && (
+                            <button
+                              type="button"
+                              disabled={isDeleting}
+                              onClick={() => handleDeleteTrigger(tr.id)}
+                              style={{
+                                background: "none", border: "none",
+                                fontSize: "13px", cursor: isDeleting ? "not-allowed" : "pointer",
+                                color: "var(--muted)", padding: "2px 4px",
+                              }}
+                              title="Remove trigger"
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--red)"; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; }}
+                            >
+                              {isDeleting ? "…" : "🗑"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <button
-                      type="button" disabled={isViewer}
-                      onClick={() => handleToggleTrigger(tr.id, tr.enabled)}
-                      className={`toggle ${tr.enabled ? "on" : ""}`}
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -849,7 +1069,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                   <HttpRequestForm config={editingConfig} onChange={setEditingConfig} disabled={isViewer} />
                 )}
                 {selectedStep.type === "conditional_branch" && (
-                  <ConditionalBranchForm config={editingConfig} onChange={setEditingConfig} disabled={isViewer} />
+                  <ConditionalBranchForm config={editingConfig} onChange={setEditingConfig} disabled={isViewer} steps={steps.filter(s => s.id !== selectedStep.id).map(s => ({ position: s.position, name: s.name }))} />
                 )}
                 {selectedStep.type === "approval_gate" && (
                   <ApprovalGateForm config={editingConfig} onChange={setEditingConfig} disabled={isViewer} />
