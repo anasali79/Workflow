@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS public.webhook_idempotency CASCADE;
+DROP TABLE IF EXISTS public.workflow_artifacts CASCADE;
+DROP TABLE IF EXISTS public.inbox_events CASCADE;
+DROP TABLE IF EXISTS public.step_runs CASCADE;
+DROP TABLE IF EXISTS public.workflow_runs CASCADE;
+DROP TABLE IF EXISTS public.workflow_triggers CASCADE;
+DROP TABLE IF EXISTS public.workflow_steps CASCADE;
+DROP TABLE IF EXISTS public.workflows CASCADE;
+DROP TABLE IF EXISTS public.org_members CASCADE;
+DROP TABLE IF EXISTS public.organizations CASCADE;
+DROP FUNCTION IF EXISTS public.set_updated_at() CASCADE;

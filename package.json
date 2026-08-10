@@ -1,0 +1,27 @@
+{
+  "name": "workflow-agent-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Agent Workflow Automation Platform (n8n-style) on Nhost/Hasura",
+  "workspaces": [
+    "apps/*",
+    "backend",
+    "backend/functions"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @workflow/web",
+    "dev:server": "npm run dev -w @workflow/backend",
+    "dev:all": "start \"Action Server\" cmd /k npm run dev:server && npm run dev",
+    "build": "npm run build -w @workflow/web",
+    "lint": "npm run lint -w @workflow/web",
+    "test": "npm run test -w @workflow/backend",
+    "typecheck": "npm run typecheck -w @workflow/web && npm run typecheck -w @workflow/backend",
+    "db:migrate": "node ./scripts/apply-migrations.mjs",
+    "db:seed": "node ./scripts/seed-demo.mjs",
+    "db:seed:placeholders": "node ./scripts/seed-demo.mjs --use-placeholders",
+    "hasura:apply": "powershell -ExecutionPolicy Bypass -File ./scripts/hasura-apply-metadata.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

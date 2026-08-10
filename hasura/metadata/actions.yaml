@@ -1,0 +1,32 @@
+actions:
+  - name: triggerWorkflowRun
+    definition:
+      kind: synchronous
+      handler: "{{ACTION_BASE_URL}}/trigger-workflow-run"
+      headers:
+        - name: x-internal-secret
+          value_from_env: INTERNAL_FUNCTION_SECRET
+      forward_client_headers: true
+      timeout: 120
+    permissions:
+      - role: user
+    comment: Start a workflow run (owner/editor). Resolves org via workflow_id server-side.
+  - name: approveStep
+    definition:
+      kind: synchronous
+      handler: "{{ACTION_BASE_URL}}/approve-step"
+      headers:
+        - name: x-internal-secret
+          value_from_env: INTERNAL_FUNCTION_SECRET
+      forward_client_headers: true
+      timeout: 120
+    permissions:
+      - role: user
+    comment: Approve a paused approval_gate step (owner/editor). Re-validates org membership server-side.
+custom_types:
+  enums: []
+  input_objects: []
+  objects:
+    - name: TriggerWorkflowRunOutput
+    - name: ApproveStepOutput
+  scalars: []

@@ -1,0 +1,39 @@
+table:
+  name: workflow_run_stats
+  schema: public
+object_relationships:
+  - name: workflow
+    using:
+      manual_configuration:
+        column_mapping:
+          workflow_id: id
+        insertion_order: null
+        remote_table:
+          name: workflows
+          schema: public
+  - name: organization
+    using:
+      manual_configuration:
+        column_mapping:
+          organization_id: id
+        insertion_order: null
+        remote_table:
+          name: organizations
+          schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - workflow_id
+        - organization_id
+        - total_runs
+        - completed_runs
+        - failed_runs
+        - success_rate
+        - average_run_duration_seconds
+      filter:
+        organization:
+          org_members:
+            user_id:
+              _eq: X-Hasura-User-Id
+      allow_aggregations: true

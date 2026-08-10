@@ -1,0 +1,88 @@
+table:
+  name: inbox_events
+  schema: public
+object_relationships:
+  - name: organization
+    using:
+      foreign_key_constraint_on: organization_id
+event_triggers:
+  - name: inbox_event_insert
+    definition:
+      enable_manual: true
+      insert:
+        columns: "*"
+    retry_conf:
+      interval_sec: 15
+      num_retries: 3
+      timeout_sec: 60
+    webhook: "{{ACTION_BASE_URL}}/db-event-trigger"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: x-internal-secret
+        value_from_env: INTERNAL_FUNCTION_SECRET
+    comment: >
+      Fires when a row is inserted into inbox_events. The db-event-trigger
+      function resolves which workflow_trigger (type=database_event) is configured
+      to watch this table and starts the associated workflow. Uses INTERNAL_FUNCTION_SECRET
+      (same secret used for Hasura Action handlers) for endpoint protection.
+      enable_manual: true allows testing via Hasura Console without inserting a row.
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - organization_id
+        - event_type
+        - payload
+        - status
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          org_members:
+            user_id:
+              _eq: X-Hasura-User-Id
+insert_permissions:
+  - role: user
+    permission:
+      columns:
+        - organization_id
+        - event_type
+        - payload
+        - status
+      check:
+        organization:
+          org_members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _in:
+                    - owner
+                    - editor
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - status
+      filter:
+        organization:
+          org_members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _in:
+                    - owner
+                    - editor
+      check:
+        organization:
+          org_members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _in:
+                    - owner
+                    - editor

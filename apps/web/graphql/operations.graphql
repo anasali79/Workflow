@@ -1,0 +1,112 @@
+# Organization workflows with steps, triggers, and latest run
+
+query OrganizationWorkflows($organizationId: uuid!) {
+  workflows(
+    where: { organization_id: { _eq: $organizationId } }
+    order_by: { updated_at: desc }
+  ) {
+    id
+    name
+    description
+    status
+    created_at
+    updated_at
+    workflow_steps(order_by: { position: asc }) {
+      id
+      position
+      name
+      type
+      config
+    }
+    workflow_triggers {
+      id
+      type
+      config
+      enabled
+    }
+    workflow_runs(order_by: { created_at: desc }, limit: 1) {
+      id
+      status
+      trigger_type
+      started_at
+      completed_at
+      error
+    }
+    run_stats {
+      total_runs
+      success_rate
+      average_run_duration_seconds
+    }
+  }
+}
+
+# Dashboard quota (org_usage_summary via organization relationship)
+
+query OrganizationUsage($organizationId: uuid!) {
+  organizations_by_pk(id: $organizationId) {
+    id
+    name
+    usage_summary {
+      quota_used
+      quota_limit
+      quota_remaining
+      quota_period_start
+      runs_this_period
+    }
+  }
+}
+
+# Live run subscription
+
+subscription StepRunsByWorkflowRun($workflowRunId: uuid!) {
+  step_runs(
+    where: { workflow_run_id: { _eq: $workflowRunId } }
+    order_by: { workflow_step: { position: asc } }
+  ) {
+    id
+    status
+    input
+    output
+    error
+    attempt_count
+    approved_by
+    approved_at
+    started_at
+    completed_at
+    workflow_step {
+      id
+      position
+      name
+      type
+    }
+  }
+}
+
+subscription WorkflowRunStatus($workflowRunId: uuid!) {
+  workflow_runs_by_pk(id: $workflowRunId) {
+    id
+    status
+    error
+    started_at
+    completed_at
+  }
+}
+
+# Actions (handlers in Phase 5)
+
+mutation TriggerWorkflowRun($workflowId: uuid!) {
+  triggerWorkflowRun(workflow_id: $workflowId) {
+    workflow_run_id
+    status
+    message
+  }
+}
+
+mutation ApproveStep($stepRunId: uuid!, $comment: String) {
+  approveStep(step_run_id: $stepRunId, comment: $comment) {
+    step_run_id
+    workflow_run_id
+    status
+    message
+  }
+}

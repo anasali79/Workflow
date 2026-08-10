@@ -1,0 +1,85 @@
+table:
+  name: organizations
+  schema: public
+object_relationships:
+  - name: usage_summary
+    using:
+      manual_configuration:
+        column_mapping:
+          id: organization_id
+        insertion_order: null
+        remote_table:
+          name: org_usage_summary
+          schema: public
+array_relationships:
+  - name: org_members
+    using:
+      foreign_key_constraint_on:
+        column: organization_id
+        table:
+          name: org_members
+          schema: public
+  - name: workflows
+    using:
+      foreign_key_constraint_on:
+        column: organization_id
+        table:
+          name: workflows
+          schema: public
+  - name: inbox_events
+    using:
+      foreign_key_constraint_on:
+        column: organization_id
+        table:
+          name: inbox_events
+          schema: public
+  - name: workflow_artifacts
+    using:
+      foreign_key_constraint_on:
+        column: organization_id
+        table:
+          name: workflow_artifacts
+          schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - name
+        - quota_limit
+        - quota_used
+        - quota_period_start
+        - created_at
+        - updated_at
+      filter:
+        org_members:
+          user_id:
+            _eq: X-Hasura-User-Id
+      allow_aggregations: true
+insert_permissions:
+  - role: user
+    permission:
+      columns:
+        - name
+        - quota_limit
+      check: {}
+
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - name
+      filter:
+        org_members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner
+      check:
+        org_members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner
