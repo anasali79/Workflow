@@ -491,6 +491,7 @@ export default function WorkflowDetailPage({ params }: Props) {
   const [addingTrigger, setAddingTrigger] = useState(false);
   const [deletingTriggerId, setDeletingTriggerId] = useState<string | null>(null);
   const [copiedTriggerId, setCopiedTriggerId] = useState<string | null>(null);
+  const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null);
 
   // Schedule picker state
   const [schedPreset, setSchedPreset] = useState("every_day");
@@ -926,11 +927,20 @@ export default function WorkflowDetailPage({ params }: Props) {
                   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
                     `https://${process.env.NEXT_PUBLIC_NHOST_SUBDOMAIN}.functions.${process.env.NEXT_PUBLIC_NHOST_REGION}.nhost.run/v1`;
                   const webhookUrl = `${backendBase}/webhook/workflow/${tr.id}`;
+                  const webhookSecret = process.env.NEXT_PUBLIC_WEBHOOK_SECRET || "dev_webhook_secret_key_12345";
+                  const isSecretCopied = copiedSecretId === tr.id;
 
                   function copyWebhookUrl() {
                     navigator.clipboard.writeText(webhookUrl).then(() => {
                       setCopiedTriggerId(tr.id);
                       setTimeout(() => setCopiedTriggerId(null), 2000);
+                    });
+                  }
+
+                  function copyWebhookSecret() {
+                    navigator.clipboard.writeText(webhookSecret).then(() => {
+                      setCopiedSecretId(tr.id);
+                      setTimeout(() => setCopiedSecretId(null), 2000);
                     });
                   }
 
@@ -980,36 +990,68 @@ export default function WorkflowDetailPage({ params }: Props) {
                         </div>
                       </div>
 
-                      {/* Webhook URL box */}
+                      {/* Webhook URL & Secret box */}
                       {tr.type === "webhook" && (
-                        <div style={{ marginTop: "10px", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px" }}>
-                          <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Webhook URL — POST here to trigger this workflow</p>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <code style={{
-                              flex: 1, fontSize: "10.5px", color: "var(--accent-hover)", fontFamily: "monospace",
-                              background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
-                              padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
-                            }}>
-                              {webhookUrl}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={copyWebhookUrl}
-                              style={{
-                                flexShrink: 0, padding: "6px 12px", borderRadius: "8px",
-                                border: isCopied ? "1px solid #10b981" : "1px solid var(--border-2)",
-                                background: isCopied ? "#10b98120" : "var(--bg-3)",
-                                color: isCopied ? "var(--green)" : "var(--muted)",
-                                fontSize: "11px", fontWeight: 600, cursor: "pointer",
-                                transition: "all 0.2s",
-                              }}
-                            >
-                              {isCopied ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                        <div style={{ marginTop: "10px", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "8px", padding: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                          {/* URL section */}
+                          <div>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
+                              Webhook URL — POST to trigger
+                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <code style={{
+                                flex: 1, fontSize: "10.5px", color: "var(--accent-hover)", fontFamily: "monospace",
+                                background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
+                                padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
+                              }}>
+                                {webhookUrl}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={copyWebhookUrl}
+                                style={{
+                                  flexShrink: 0, padding: "5px 10px", borderRadius: "8px",
+                                  border: isCopied ? "1px solid #10b981" : "1px solid var(--border-2)",
+                                  background: isCopied ? "#10b98120" : "var(--bg-3)",
+                                  color: isCopied ? "var(--green)" : "var(--muted)",
+                                  fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                                  transition: "all 0.2s",
+                                }}
+                              >
+                                {isCopied ? "✓ Copied!" : "📋 Copy URL"}
+                              </button>
+                            </div>
                           </div>
-                          <p style={{ fontSize: "10px", color: "var(--muted)", marginTop: "6px" }}>
-                            Add header: <code style={{ fontFamily: "monospace", color: "var(--foreground)" }}>x-webhook-secret: {"<your WEBHOOK_SECRET>"}</code>
-                          </p>
+
+                          {/* Secret Header section */}
+                          <div>
+                            <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
+                              Header Security — x-webhook-secret
+                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <code style={{
+                                flex: 1, fontSize: "10.5px", color: "var(--foreground)", fontFamily: "monospace",
+                                background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
+                                padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
+                              }}>
+                                x-webhook-secret: {webhookSecret}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={copyWebhookSecret}
+                                style={{
+                                  flexShrink: 0, padding: "5px 10px", borderRadius: "8px",
+                                  border: isSecretCopied ? "1px solid #10b981" : "1px solid var(--border-2)",
+                                  background: isSecretCopied ? "#10b98120" : "var(--bg-3)",
+                                  color: isSecretCopied ? "var(--green)" : "var(--muted)",
+                                  fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                                  transition: "all 0.2s",
+                                }}
+                              >
+                                {isSecretCopied ? "✓ Copied!" : "🔑 Copy Secret"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
