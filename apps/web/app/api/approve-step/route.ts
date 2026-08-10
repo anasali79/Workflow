@@ -138,18 +138,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Optional safety check:
-    // Only resume a step that is actually waiting for approval.
-    const stepRun = checkData.data.step_runs_by_pk;
-
-    if (stepRun.status !== "waiting_approval") {
-      return NextResponse.json(
-        {
-          message: `Step run is not waiting for approval. Current status: ${stepRun.status}`,
-        },
-        { status: 409 }
-      );
-    }
 
     // Resume workflow after approval.
     const result = await workflowEngine.resumeAfterApproval(
