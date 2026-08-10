@@ -923,15 +923,14 @@ export default function WorkflowDetailPage({ params }: Props) {
                     return cron;
                   }
 
-                  // Webhook URL: POST /webhook/workflow/<triggerId>
-                  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ||
-                    `https://${process.env.NEXT_PUBLIC_NHOST_SUBDOMAIN}.functions.${process.env.NEXT_PUBLIC_NHOST_REGION}.nhost.run/v1`;
-                  const webhookUrl = `${backendBase}/webhook/workflow/${tr.id}`;
+                  // Webhook URLs
+                  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+                  const appWebhookUrl = `${appBaseUrl}/api/webhook/${tr.id}`;
                   const webhookSecret = process.env.NEXT_PUBLIC_WEBHOOK_SECRET || "dev_webhook_secret_key_12345";
                   const isSecretCopied = copiedSecretId === tr.id;
 
                   function copyWebhookUrl() {
-                    navigator.clipboard.writeText(webhookUrl).then(() => {
+                    navigator.clipboard.writeText(appWebhookUrl).then(() => {
                       setCopiedTriggerId(tr.id);
                       setTimeout(() => setCopiedTriggerId(null), 2000);
                     });
@@ -996,7 +995,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                           {/* URL section */}
                           <div>
                             <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
-                              Webhook URL — POST to trigger
+                              Webhook Endpoint URL (POST / GET)
                             </p>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <code style={{
@@ -1004,7 +1003,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                                 background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "6px",
                                 padding: "6px 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
                               }}>
-                                {webhookUrl}
+                                {appWebhookUrl}
                               </code>
                               <button
                                 type="button"
@@ -1026,7 +1025,7 @@ export default function WorkflowDetailPage({ params }: Props) {
                           {/* Secret Header section */}
                           <div>
                             <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
-                              Header Security — x-webhook-secret
+                              Required Security Header
                             </p>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <code style={{
@@ -1056,7 +1055,8 @@ export default function WorkflowDetailPage({ params }: Props) {
                       )}
                     </div>
                   );
-                })}
+                }
+)}
               </div>
             )}
           </div>

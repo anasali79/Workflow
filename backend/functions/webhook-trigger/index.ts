@@ -72,13 +72,22 @@ async function loadWebhookTrigger(triggerId: string): Promise<WorkflowTriggerRow
  *   /webhook/workflow/<triggerId>
  */
 function extractTriggerId(url: string): string {
-  const pathname = new URL(url).pathname;
-  // Match /webhook/workflow/<uuid> with optional trailing slash
-  const match = pathname.match(/\/webhook\/workflow\/([^/]+)\/?$/);
-  if (!match?.[1]) {
-    throw new AppError("VALIDATION_ERROR", "Trigger ID missing from URL path", 400);
+  const parsedUrl = new URL(url);
+  const pathname = parsedUrl.pathname;
+  
+  // 1. Try matching UUID in pathname
+  const match = pathname.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if (match?.[1]) {
+    return match[1];
   }
-  return match[1];
+
+  // 2. Try query params
+  const fromQuery = parsedUrl.searchParams.get("triggerId") || parsedUrl.searchParams.get("trigger_id");
+  if (fromQuery) {
+    return fromQuery;
+  }
+
+  throw new AppError("VALIDATION_ERROR", "Trigger ID missing from URL path or query parameters", 400);
 }
 
 export default async function handler(req: Request): Promise<Response> {

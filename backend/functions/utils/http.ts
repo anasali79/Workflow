@@ -141,7 +141,7 @@ export function errorResponse(error: unknown): JsonResponse {
   });
   return {
     status: 500,
-    body: { message: "Internal server error", code: "INTERNAL_ERROR" },
+    body: { message, code: "INTERNAL_ERROR" },
   };
 }
 
