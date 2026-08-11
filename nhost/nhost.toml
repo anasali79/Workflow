@@ -1,3 +1,4 @@
 # Nhost configuration file for Nhost Cloud deployment
-[hasura]
-version = "v2.36.0"
+# The repository does not carry a deployable Nhost Hasura cloud config payload.
+# Keep this file schema-minimal to avoid sending unsupported contract fields.
+
