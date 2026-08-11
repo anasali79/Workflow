@@ -1,4 +1,6 @@
+
 // backend/services/database/client.ts
+
 import pg from "pg";
 import { AppError } from "../../utils/errors.js";
 
@@ -9,10 +11,11 @@ let pool: pg.Pool | null = null;
 /**
  * PostgreSQL connection pool.
  *
- * IMPORTANT:
  * Nhost Functions run in a Lambda-like environment.
+ *
+ * IMPORTANT:
  * allowExitOnIdle prevents idle pg connections from keeping
- * the Lambda runtime alive after the response has been returned.
+ * the Lambda runtime alive after the request has finished.
  */
 export function getPool(): pg.Pool {
   if (!pool) {
@@ -29,17 +32,20 @@ export function getPool(): pg.Pool {
     pool = new Pool({
       connectionString,
 
-      // Keep the pool small for serverless/Lambda functions.
+      // Small pool for serverless functions.
       max: 5,
 
-      // Don't keep Lambda alive because of idle PostgreSQL clients.
+      // IMPORTANT for Lambda/Nhost.
       allowExitOnIdle: true,
 
-      // Prevent a connection attempt from hanging indefinitely.
+      // Don't wait forever for a DB connection.
       connectionTimeoutMillis: 5000,
 
-      // Close idle clients relatively quickly.
+      // Don't keep idle connections for too long.
       idleTimeoutMillis: 5000,
+
+      // Prevent a PostgreSQL query from hanging forever.
+      statement_timeout: 8000,
     });
 
     pool.on("error", (error) => {
@@ -70,7 +76,10 @@ export async function withTransaction<T>(
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
-      console.error("Transaction rollback failed:", rollbackError);
+      console.error(
+        "Transaction rollback failed:",
+        rollbackError,
+      );
     }
 
     throw error;
@@ -102,3 +111,4 @@ export async function queryOne<T extends pg.QueryResultRow>(
 
   return result.rows[0] ?? null;
 }
+
