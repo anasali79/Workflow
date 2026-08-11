@@ -1,6 +1,3 @@
 # Nhost configuration file for Nhost Cloud deployment
-[provider]
-name = "nhost"
-
 [hasura]
 version = "v2.36.0"
