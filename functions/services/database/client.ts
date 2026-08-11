@@ -1,5 +1,4 @@
 
-// backend/services/database/client.ts
 
 import pg from "pg";
 import { AppError } from "../../utils/errors.js";
@@ -14,8 +13,10 @@ let pool: pg.Pool | null = null;
  * Nhost Functions run in a Lambda-like environment.
  *
  * IMPORTANT:
- * allowExitOnIdle prevents idle pg connections from keeping
- * the Lambda runtime alive after the request has finished.
+ * - allowExitOnIdle prevents idle pg connections from keeping
+ *   the Lambda runtime alive after the request finishes.
+ * - statement_timeout is intentionally NOT configured here because
+ *   Nhost PostgreSQL rejects it as a startup parameter in this setup.
  */
 export function getPool(): pg.Pool {
   if (!pool) {
@@ -32,20 +33,17 @@ export function getPool(): pg.Pool {
     pool = new Pool({
       connectionString,
 
-      // Small pool for serverless functions.
+      // Small pool for serverless/Lambda functions.
       max: 5,
 
-      // IMPORTANT for Lambda/Nhost.
+      // Allow the Lambda/Nhost runtime to exit when the pool is idle.
       allowExitOnIdle: true,
 
       // Don't wait forever for a DB connection.
       connectionTimeoutMillis: 5000,
 
-      // Don't keep idle connections for too long.
+      // Release idle connections relatively quickly.
       idleTimeoutMillis: 5000,
-
-      // Prevent a PostgreSQL query from hanging forever.
-      statement_timeout: 8000,
     });
 
     pool.on("error", (error) => {
@@ -58,6 +56,11 @@ export function getPool(): pg.Pool {
 
 /**
  * Execute a callback inside a PostgreSQL transaction.
+ *
+ * BEGIN
+ *   -> execute callback
+ *   -> COMMIT on success
+ *   -> ROLLBACK on failure
  */
 export async function withTransaction<T>(
   fn: (client: pg.PoolClient) => Promise<T>,
@@ -76,10 +79,7 @@ export async function withTransaction<T>(
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
-      console.error(
-        "Transaction rollback failed:",
-        rollbackError,
-      );
+      console.error("Transaction rollback failed:", rollbackError);
     }
 
     throw error;
@@ -111,4 +111,3 @@ export async function queryOne<T extends pg.QueryResultRow>(
 
   return result.rows[0] ?? null;
 }
-

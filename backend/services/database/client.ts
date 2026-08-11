@@ -1,3 +1,4 @@
+// backend/services/database/client.ts
 
 import pg from "pg";
 import { AppError } from "../../utils/errors.js";
@@ -20,21 +21,9 @@ export function getPool(): pg.Pool {
 
     pool = new Pool({
       connectionString,
-
-      // Serverless / Nhost Lambda friendly settings
       max: 5,
-
-      // IMPORTANT:
-      // Allow Node.js process/Lambda to finish when pool is idle.
       allowExitOnIdle: true,
-
-      // Don't keep trying forever to establish a connection.
       connectionTimeoutMillis: 5000,
-
-      // Prevent queries from hanging indefinitely.
-      statement_timeout: 8000,
-
-      // Keep idle connections short-lived.
       idleTimeoutMillis: 5000,
     });
 
@@ -86,21 +75,5 @@ export async function queryOne<T extends pg.QueryResultRow>(
   params?: unknown[],
 ): Promise<T | null> {
   const result = await query<T>(text, params);
-
   return result.rows[0] ?? null;
-}
-
-/**
- * Gracefully close the pool.
- *
- * Useful for tests/shutdowns.
- * Do NOT call this after every request in Lambda.
- */
-export async function closePool(): Promise<void> {
-  if (pool) {
-    const currentPool = pool;
-    pool = null;
-
-    await currentPool.end();
-  }
 }
