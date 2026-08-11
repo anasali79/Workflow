@@ -7,6 +7,13 @@ const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
+/**
+ * PostgreSQL connection pool for Nhost Functions.
+ *
+ * IMPORTANT:
+ * Do NOT use statement_timeout in Pool config here.
+ * Nhost's PostgreSQL endpoint rejects it as a startup parameter.
+ */
 export function getPool(): pg.Pool {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
@@ -21,9 +28,18 @@ export function getPool(): pg.Pool {
 
     pool = new Pool({
       connectionString,
+
+      // Serverless-friendly pool size.
       max: 5,
+
+      // Prevent idle pg connections from keeping
+      // the Lambda/Nhost runtime alive.
       allowExitOnIdle: true,
+
+      // Fail fast if PostgreSQL cannot be reached.
       connectionTimeoutMillis: 5000,
+
+      // Close idle connections relatively quickly.
       idleTimeoutMillis: 5000,
     });
 
@@ -35,6 +51,9 @@ export function getPool(): pg.Pool {
   return pool;
 }
 
+/**
+ * Execute a callback inside a PostgreSQL transaction.
+ */
 export async function withTransaction<T>(
   fn: (client: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
@@ -52,7 +71,10 @@ export async function withTransaction<T>(
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
-      console.error("Transaction rollback failed:", rollbackError);
+      console.error(
+        "Transaction rollback failed:",
+        rollbackError,
+      );
     }
 
     throw error;
@@ -61,6 +83,9 @@ export async function withTransaction<T>(
   }
 }
 
+/**
+ * Execute a normal PostgreSQL query.
+ */
 export async function query<
   T extends pg.QueryResultRow = pg.QueryResultRow,
 >(
@@ -70,10 +95,14 @@ export async function query<
   return getPool().query<T>(text, params);
 }
 
+/**
+ * Return the first row or null.
+ */
 export async function queryOne<T extends pg.QueryResultRow>(
   text: string,
   params?: unknown[],
 ): Promise<T | null> {
   const result = await query<T>(text, params);
+
   return result.rows[0] ?? null;
 }

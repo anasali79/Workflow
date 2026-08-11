@@ -1,4 +1,4 @@
-
+// backend/services/database/client.ts
 
 import pg from "pg";
 import { AppError } from "../../utils/errors.js";
@@ -8,15 +8,11 @@ const { Pool } = pg;
 let pool: pg.Pool | null = null;
 
 /**
- * PostgreSQL connection pool.
- *
- * Nhost Functions run in a Lambda-like environment.
+ * PostgreSQL connection pool for Nhost Functions.
  *
  * IMPORTANT:
- * - allowExitOnIdle prevents idle pg connections from keeping
- *   the Lambda runtime alive after the request finishes.
- * - statement_timeout is intentionally NOT configured here because
- *   Nhost PostgreSQL rejects it as a startup parameter in this setup.
+ * Do NOT use statement_timeout in Pool config here.
+ * Nhost's PostgreSQL endpoint rejects it as a startup parameter.
  */
 export function getPool(): pg.Pool {
   if (!pool) {
@@ -33,16 +29,17 @@ export function getPool(): pg.Pool {
     pool = new Pool({
       connectionString,
 
-      // Small pool for serverless/Lambda functions.
+      // Serverless-friendly pool size.
       max: 5,
 
-      // Allow the Lambda/Nhost runtime to exit when the pool is idle.
+      // Prevent idle pg connections from keeping
+      // the Lambda/Nhost runtime alive.
       allowExitOnIdle: true,
 
-      // Don't wait forever for a DB connection.
+      // Fail fast if PostgreSQL cannot be reached.
       connectionTimeoutMillis: 5000,
 
-      // Release idle connections relatively quickly.
+      // Close idle connections relatively quickly.
       idleTimeoutMillis: 5000,
     });
 
@@ -56,11 +53,6 @@ export function getPool(): pg.Pool {
 
 /**
  * Execute a callback inside a PostgreSQL transaction.
- *
- * BEGIN
- *   -> execute callback
- *   -> COMMIT on success
- *   -> ROLLBACK on failure
  */
 export async function withTransaction<T>(
   fn: (client: pg.PoolClient) => Promise<T>,
@@ -79,7 +71,10 @@ export async function withTransaction<T>(
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
-      console.error("Transaction rollback failed:", rollbackError);
+      console.error(
+        "Transaction rollback failed:",
+        rollbackError,
+      );
     }
 
     throw error;

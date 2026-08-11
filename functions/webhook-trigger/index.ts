@@ -1,4 +1,3 @@
-
 /**
  * Nhost Function: webhook-trigger
  *
@@ -17,12 +16,11 @@
  *        ↓
  * create step_runs
  *        ↓
- * return 202 immediately
- *
- * IMPORTANT:
- * This function does NOT execute the workflow synchronously.
- * This prevents Lambda/Nhost timeout when a workflow reaches
- * an approval gate.
+ * execute workflow
+ *        ↓
+ * approval_gate => paused
+ *        ↓
+ * return result
  */
 
 import { queryOne, withTransaction } from "../services/database/client.js";
@@ -47,6 +45,7 @@ import {
 
 import { assertQuotaAvailable } from "../services/quota/index.js";
 
+import { workflowEngine } from "../services/workflow-engine/engine.js";
 
 interface WorkflowTriggerRow {
   id: string;
@@ -56,10 +55,9 @@ interface WorkflowTriggerRow {
   config: Record<string, unknown>;
 }
 
-
 /**
- * Nhost can provide Node/Express style headers.
- * Do not use req.headers.entries().
+ * Normalize headers so the function works with
+ * Headers and Express/Nhost-style header objects.
  */
 function normalizeHeaders(
   headers: unknown,
@@ -85,22 +83,15 @@ function normalizeHeaders(
   return result;
 }
 
-
 /**
  * Extract triggerId from:
  *
  * ?triggerId=<uuid>
  * ?trigger_id=<uuid>
  *
- * and also supports UUID in pathname.
+ * Also supports UUID inside pathname.
  */
 function extractTriggerId(url: string): string {
-  /**
-   * Nhost should normally provide a full URL.
-   *
-   * But if runtime gives only a pathname/query string,
-   * create a safe base URL.
-   */
   let parsedUrl: URL;
 
   try {
@@ -122,7 +113,7 @@ function extractTriggerId(url: string): string {
 
   const pathname = parsedUrl.pathname;
 
-  // First try UUID from pathname.
+  // UUID inside pathname.
   const pathMatch = pathname.match(
     /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
   );
@@ -131,7 +122,7 @@ function extractTriggerId(url: string): string {
     return pathMatch[1];
   }
 
-  // Then query parameter.
+  // UUID from query parameter.
   const queryTriggerId =
     parsedUrl.searchParams.get("triggerId") ??
     parsedUrl.searchParams.get("trigger_id");
@@ -146,7 +137,6 @@ function extractTriggerId(url: string): string {
     400,
   );
 }
-
 
 /**
  * Load and validate webhook trigger.
@@ -195,15 +185,18 @@ async function loadWebhookTrigger(
   return row;
 }
 
-
 /**
- * Read JSON body without depending on Headers.entries().
+ * Read webhook JSON body.
+ *
+ * Supports:
+ * - Nhost/Express parsed req.body
+ * - Request.json()
  */
 async function readPayload(
   req: Request & { body?: unknown },
   headers: Record<string, string | undefined>,
 ): Promise<Record<string, unknown>> {
-  // Nhost/Express may already parse req.body.
+  // Body already parsed by runtime.
   if (req.body !== undefined) {
     if (
       req.body &&
@@ -219,6 +212,7 @@ async function readPayload(
   const contentType =
     headers["content-type"]?.toLowerCase() ?? "";
 
+  // No JSON body.
   if (!contentType.includes("application/json")) {
     return {};
   }
@@ -244,13 +238,11 @@ async function readPayload(
   return {};
 }
 
-
 /**
- * Create a workflow run without executing it.
+ * Create workflow run and step runs.
  */
-async function createQueuedRun(
+async function createWorkflowRunForWebhook(
   workflowId: string,
-  triggerType: string,
   triggeredBy: string | null,
   idempotencyKey: string | null,
 ): Promise<string> {
@@ -264,9 +256,7 @@ async function createQueuedRun(
     );
   }
 
-  const steps = await loadWorkflowSteps(
-    workflowId,
-  );
+  const steps = await loadWorkflowSteps(workflowId);
 
   if (steps.length === 0) {
     throw new AppError(
@@ -277,6 +267,7 @@ async function createQueuedRun(
   }
 
   return withTransaction(async (client) => {
+    // Quota is checked before creating the run.
     await assertQuotaAvailable(
       resolved.organizationId,
       client,
@@ -286,7 +277,7 @@ async function createQueuedRun(
       client,
       {
         workflowId,
-        triggerType,
+        triggerType: "webhook",
         triggeredBy,
         idempotencyKey,
       },
@@ -296,24 +287,26 @@ async function createQueuedRun(
       client,
       runId,
       steps,
-    );  
+    );
 
     return runId;
   });
 }
 
-
+/**
+ * Nhost Function handler.
+ */
 export default async function handler(
   req: Request & {
     headers:
       | Headers
       | Record<string, string | string[] | undefined>;
+
     body?: unknown;
   },
 ): Promise<Response> {
-
   // ---------------------------------------------------------
-  // Method
+  // 1. HTTP method
   // ---------------------------------------------------------
 
   if (req.method !== "POST") {
@@ -332,92 +325,87 @@ export default async function handler(
     );
   }
 
-
   // ---------------------------------------------------------
-  // Normalize headers
+  // 2. Normalize headers
   // ---------------------------------------------------------
 
-  const headers = normalizeHeaders(
-    req.headers,
-  );
-
+  const headers = normalizeHeaders(req.headers);
 
   try {
     // -------------------------------------------------------
-    // 1. Webhook secret
+    // 3. Validate webhook secret
     // -------------------------------------------------------
 
     validateWebhookSecret(headers);
 
+    // -------------------------------------------------------
+    // 4. Extract trigger ID
+    // -------------------------------------------------------
+
+    const rawTriggerId = extractTriggerId(req.url);
+
+    const triggerId = assertValidUuid(
+      rawTriggerId,
+      "triggerId",
+    );
 
     // -------------------------------------------------------
-    // 2. Trigger ID
-    // -------------------------------------------------------
-
-    const rawTriggerId =
-      extractTriggerId(req.url);
-
-    const triggerId =
-      assertValidUuid(
-        rawTriggerId,
-        "triggerId",
-      );
-
-
-    // -------------------------------------------------------
-    // 3. Idempotency
+    // 5. Idempotency key
     // -------------------------------------------------------
 
     const idempotencyKey =
-      headers["x-idempotency-key"] ??
-      null;
-
+      headers["x-idempotency-key"] ?? null;
 
     // -------------------------------------------------------
-    // 4. Trigger payload
+    // 6. Read webhook payload
     // -------------------------------------------------------
 
-    const triggerPayload =
-      await readPayload(
-        req,
-        headers,
-      );
-
+    const triggerPayload = await readPayload(
+      req,
+      headers,
+    );
 
     // -------------------------------------------------------
-    // 5. Validate trigger
+    // 7. Load webhook trigger
     // -------------------------------------------------------
 
-    const trigger =
-      await loadWebhookTrigger(
-        triggerId,
-      );
+    const trigger = await loadWebhookTrigger(
+      triggerId,
+    );
 
+    logger.info("Webhook trigger received", {
+      triggerId,
+      workflowId: trigger.workflow_id,
+      idempotencyKey,
+      payloadReceived:
+        Object.keys(triggerPayload).length > 0,
+      action: "webhook_trigger",
+      success: true,
+    });
 
     // -------------------------------------------------------
-    // 6. Existing idempotent run
+    // 8. Idempotency check
     // -------------------------------------------------------
 
     if (idempotencyKey) {
-      const existing =
-        await queryOne<{
-          id: string;
-          status: string;
-        }>(
-          `
-            SELECT
-              id,
-              status
-            FROM workflow_runs
-            WHERE workflow_id = $1
-              AND idempotency_key = $2
-            LIMIT 1
-          `,
-          [
-            trigger.workflow_id,
-            idempotencyKey,
-          ],
-        );
+      const existing = await queryOne<{
+        id: string;
+        status: string;
+      }>(
+        `
+          SELECT
+            id,
+            status
+          FROM workflow_runs
+          WHERE workflow_id = $1
+            AND idempotency_key = $2
+          LIMIT 1
+        `,
+        [
+          trigger.workflow_id,
+          idempotencyKey,
+        ],
+      );
 
       if (existing) {
         logger.info(
@@ -452,69 +440,91 @@ export default async function handler(
       }
     }
 
-
     // -------------------------------------------------------
-    // 7. Create DB run
-    //
-    // IMPORTANT:
-    // We do NOT executeRun() here.
+    // 9. Create workflow run
     // -------------------------------------------------------
 
     const workflowRunId =
-      await createQueuedRun(
+      await createWorkflowRunForWebhook(
         trigger.workflow_id,
-        "webhook",
         null,
         idempotencyKey,
       );
 
-
     logger.info(
-      "Webhook workflow run queued",
+      "Webhook workflow run created",
       {
-        
         triggerId,
-        workflowId:
-          trigger.workflow_id,
+        workflowId: trigger.workflow_id,
         workflowRunId,
         idempotencyKey,
-        payloadReceived:
-          Object.keys(triggerPayload).length > 0,
         action: "webhook_trigger",
         success: true,
       },
     );
 
+    // -------------------------------------------------------
+    // 10. Execute workflow
+    //
+    // IMPORTANT:
+    // We await execution instead of creating an unresolved
+    // background Promise. This prevents the Nhost/Lambda
+    // Runtime.NodeJsExit problem.
+    //
+    // If workflow reaches approval_gate,
+    // executeRun() returns "paused".
+    // -------------------------------------------------------
+
+    const executionStatus =
+      await workflowEngine.executeRun(
+        workflowRunId,
+        triggerPayload,
+      );
 
     // -------------------------------------------------------
-    // 8. Return immediately
+    // 11. Return execution result
     // -------------------------------------------------------
+
+    logger.info(
+      "Webhook workflow execution finished",
+      {
+        triggerId,
+        workflowId: trigger.workflow_id,
+        workflowRunId,
+        status: executionStatus,
+        action: "webhook_trigger_complete",
+        success: true,
+      },
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
-        workflow_run_id:
-          workflowRunId,
-        status: "queued",
+        workflow_run_id: workflowRunId,
+        status: executionStatus,
         message:
-          "Workflow accepted for execution",
+          executionStatus === "paused"
+            ? "Workflow paused and awaiting approval"
+            : executionStatus === "completed"
+              ? "Workflow completed successfully"
+              : "Workflow execution finished",
       }),
       {
-        status: 202,
+        status: 200,
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type": "application/json",
         },
       },
     );
-
   } catch (error) {
+    // -------------------------------------------------------
+    // 12. Error handling
+    // -------------------------------------------------------
 
     logger.error(
       "Webhook trigger failed",
       {
-        action:
-          "webhook_trigger_error",
+        action: "webhook_trigger_error",
         error:
           error instanceof Error
             ? error.message
@@ -523,12 +533,10 @@ export default async function handler(
       },
     );
 
-
     const {
       body,
       status,
     } = errorResponse(error);
-
 
     return new Response(
       JSON.stringify(body),
