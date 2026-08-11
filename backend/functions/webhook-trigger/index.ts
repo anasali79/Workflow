@@ -10,18 +10,9 @@
  *   - Validates x-webhook-secret header (WEBHOOK_SECRET env var)
  *   - Validates trigger exists and is enabled
  *   - Verifies trigger type is 'webhook'
- *   - Does NOT trust client-submitted workflowId or orgId — all resolved via triggerId
+ *   - Does NOT trust client-submitted workflowId or orgId
  *   - Idempotency: if x-idempotency-key header present, deduplicates runs
- *   - SSRF: webhook trigger invokes the engine, which uses the SSRF guard
- *     for any http_request steps inside the workflow
- *
- * Idempotency:
- *   Callers may retry the webhook with the same X-Idempotency-Key header.
- *   The engine checks webhook_idempotency table and returns the existing
- *   run rather than creating a duplicate.
- *
- * Note: This is registered as an Nhost Function. In Nhost, functions
- * can handle path params by parsing the URL manually.
+ *   - SSRF protection is handled by the workflow engine
  */
 
 import { queryOne } from "../../services/database/client.js";
@@ -43,10 +34,59 @@ interface WorkflowTriggerRow {
   config: Record<string, unknown>;
 }
 
+type HeaderValue = string | string[] | undefined;
+type HeaderMap = Record<string, HeaderValue>;
+
 /**
- * Load a workflow trigger by ID, ensuring it is enabled and of type 'webhook'.
+ * Normalize Nhost/Express headers into a plain object.
+ *
+ * Nhost Functions run through an Express-based wrapper, so req.headers
+ * may be a plain Node/Express IncomingHttpHeaders object rather than
+ * the Fetch API Headers class.
  */
-async function loadWebhookTrigger(triggerId: string): Promise<WorkflowTriggerRow> {
+function normalizeHeaders(headers: unknown): Record<string, string | undefined> {
+  if (!headers) {
+    return {};
+  }
+
+  // Native Fetch Headers
+  if (
+    typeof headers === "object" &&
+    headers !== null &&
+    typeof (headers as { entries?: unknown }).entries === "function"
+  ) {
+    return Object.fromEntries(
+      Array.from(
+        (headers as Headers).entries(),
+      ),
+    );
+  }
+
+  // Express / Node headers
+  const rawHeaders = headers as HeaderMap;
+
+  const normalized: Record<string, string | undefined> = {};
+
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (Array.isArray(value)) {
+      normalized[key.toLowerCase()] = value.join(", ");
+    } else if (typeof value === "string") {
+      normalized[key.toLowerCase()] = value;
+    } else {
+      normalized[key.toLowerCase()] = undefined;
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Load a workflow trigger by ID,
+ * ensuring it is enabled and of type 'webhook'.
+ */
+async function loadWebhookTrigger(
+  triggerId: string,
+): Promise<WorkflowTriggerRow> {
   const row = await queryOne<WorkflowTriggerRow>(
     `SELECT id, workflow_id, type, enabled, config
      FROM workflow_triggers
@@ -55,82 +95,190 @@ async function loadWebhookTrigger(triggerId: string): Promise<WorkflowTriggerRow
   );
 
   if (!row) {
-    throw new AppError("NOT_FOUND", "Webhook trigger not found", 404);
+    throw new AppError(
+      "NOT_FOUND",
+      "Webhook trigger not found",
+      404,
+    );
   }
+
   if (row.type !== "webhook") {
-    throw new AppError("VALIDATION_ERROR", "Trigger is not a webhook trigger", 400);
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Trigger is not a webhook trigger",
+      400,
+    );
   }
+
   if (!row.enabled) {
-    throw new AppError("VALIDATION_ERROR", "Webhook trigger is disabled", 400);
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Webhook trigger is disabled",
+      400,
+    );
   }
 
   return row;
 }
 
 /**
- * Extract the triggerId from the URL path:
+ * Extract triggerId from URL.
+ *
+ * Supported:
  *   /webhook/workflow/<triggerId>
+ *   /webhook/workflow/<triggerId>?...
+ *   ?triggerId=<triggerId>
+ *   ?trigger_id=<triggerId>
  */
 function extractTriggerId(url: string): string {
   const parsedUrl = new URL(url);
   const pathname = parsedUrl.pathname;
-  
-  // 1. Try matching UUID in pathname
-  const match = pathname.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+
+  // Try UUID from pathname first.
+  const match = pathname.match(
+    /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+  );
+
   if (match?.[1]) {
     return match[1];
   }
 
-  // 2. Try query params
-  const fromQuery = parsedUrl.searchParams.get("triggerId") || parsedUrl.searchParams.get("trigger_id");
+  // Fallback to query params.
+  const fromQuery =
+    parsedUrl.searchParams.get("triggerId") ||
+    parsedUrl.searchParams.get("trigger_id");
+
   if (fromQuery) {
     return fromQuery;
   }
 
-  throw new AppError("VALIDATION_ERROR", "Trigger ID missing from URL path or query parameters", 400);
+  throw new AppError(
+    "VALIDATION_ERROR",
+    "Trigger ID missing from URL path or query parameters",
+    400,
+  );
 }
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ message: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+/**
+ * Safely read request body.
+ *
+ * Supports both:
+ * - Fetch Request: req.json()
+ * - Express/Nhost request: req.body
+ */
+async function readTriggerPayload(
+  req: Request & {
+    body?: unknown;
+  },
+  headers: Record<string, string | undefined>,
+): Promise<Record<string, unknown>> {
+  const contentType = headers["content-type"] ?? "";
 
-  const headers = Object.fromEntries(req.headers.entries());
-
-  try {
-    // 1. Validate webhook secret
-    validateWebhookSecret(headers);
-
-    // 2. Extract and validate trigger ID from URL
-    const rawTriggerId = extractTriggerId(req.url);
-    const triggerId = assertValidUuid(rawTriggerId, "triggerId");
-
-    // 3. Parse idempotency key (optional)
-    const idempotencyKey =
-      (headers["x-idempotency-key"] as string | undefined) ||
-      (headers["X-Idempotency-Key"] as string | undefined) ||
-      null;
-
-    // 4. Parse request body as trigger payload (could be any JSON)
-    let triggerPayload: Record<string, unknown> = {};
-    try {
-      const contentType = headers["content-type"] ?? "";
-      if (contentType.includes("application/json")) {
-        const body = await req.json();
-        if (body && typeof body === "object" && !Array.isArray(body)) {
-          triggerPayload = body as Record<string, unknown>;
-        }
+  // JSON request
+  if (contentType.toLowerCase().includes("application/json")) {
+    // Express/Nhost runtime may already have parsed the body.
+    if (req.body !== undefined) {
+      if (
+        req.body &&
+        typeof req.body === "object" &&
+        !Array.isArray(req.body)
+      ) {
+        return req.body as unknown as Record<string, unknown>;
       }
-    } catch {
-      // Non-JSON body is fine — payload defaults to {}
+
+      return {};
     }
 
-    // 5. Resolve and validate the webhook trigger
+    // Fetch-style fallback.
+    if (typeof req.json === "function") {
+      try {
+        const body = await req.json();
+
+        if (
+          body &&
+          typeof body === "object" &&
+          !Array.isArray(body)
+        ) {
+          return body as Record<string, unknown>;
+        }
+      } catch {
+        // Invalid/non-readable JSON.
+      }
+    }
+  }
+
+  return {};
+}
+
+export default async function handler(
+  req: Request & {
+    headers: Headers | Record<string, string | string[] | undefined>;
+    body?: unknown;
+  },
+): Promise<Response> {
+  // Only POST is supported.
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({
+        message: "Method not allowed",
+      }),
+      {
+        status: 405,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  }
+
+  /**
+   * IMPORTANT:
+   *
+   * Do NOT call:
+   *   req.headers.entries()
+   *
+   * Nhost's runtime uses Express/Node-style headers.
+   */
+  const headers = normalizeHeaders(req.headers);
+
+  try {
+    // ---------------------------------------------------------
+    // 1. Validate webhook secret
+    // ---------------------------------------------------------
+    validateWebhookSecret(headers);
+
+    // ---------------------------------------------------------
+    // 2. Extract and validate trigger ID
+    // ---------------------------------------------------------
+    const rawTriggerId = extractTriggerId(req.url);
+
+    const triggerId = assertValidUuid(
+      rawTriggerId,
+      "triggerId",
+    );
+
+    // ---------------------------------------------------------
+    // 3. Parse idempotency key
+    // ---------------------------------------------------------
+    const idempotencyKey =
+      headers["x-idempotency-key"] ?? null;
+
+    // ---------------------------------------------------------
+    // 4. Parse webhook payload
+    // ---------------------------------------------------------
+    const triggerPayload = await readTriggerPayload(
+      req,
+      headers,
+    );
+
+    // ---------------------------------------------------------
+    // 5. Load and validate webhook trigger
+    // ---------------------------------------------------------
     const trigger = await loadWebhookTrigger(triggerId);
 
+    // ---------------------------------------------------------
+    // 6. Log webhook invocation
+    // ---------------------------------------------------------
     logger.info("Webhook trigger received", {
       action: "webhook_trigger",
       triggerId,
@@ -139,15 +287,20 @@ export default async function handler(req: Request): Promise<Response> {
       success: true,
     });
 
-    // 6. Execute via the shared engine (same path as manual / scheduled / db_event)
+    // ---------------------------------------------------------
+    // 7. Execute workflow
+    // ---------------------------------------------------------
     const result = await workflowEngine.triggerRun({
       workflowId: trigger.workflow_id,
       triggerType: "webhook",
-      triggeredBy: null, // No authenticated user for external webhooks
+      triggeredBy: null,
       idempotencyKey,
       triggerPayload,
     });
 
+    // ---------------------------------------------------------
+    // 8. Build success response
+    // ---------------------------------------------------------
     const { body, status } = successResponse({
       workflow_run_id: result.workflowRunId,
       status: result.status,
@@ -159,13 +312,28 @@ export default async function handler(req: Request): Promise<Response> {
 
     return new Response(JSON.stringify(body), {
       status,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
   } catch (error) {
+    // ---------------------------------------------------------
+    // Error handling
+    // ---------------------------------------------------------
+    logger.error("Webhook trigger failed", {
+      action: "webhook_trigger_error",
+      error: error instanceof Error
+        ? error.message
+        : String(error),
+    });
+
     const { body, status } = errorResponse(error);
+
     return new Response(JSON.stringify(body), {
       status,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
   }
 }
