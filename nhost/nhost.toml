@@ -1,4 +1,0 @@
-# Nhost configuration file for Nhost Cloud deployment
-# The repository does not carry a deployable Nhost Hasura cloud config payload.
-# Keep this file schema-minimal to avoid sending unsupported contract fields.
-
