@@ -26,20 +26,13 @@ array_relationships:
         table:
           name: workflows
           schema: public
-  - name: inbox_events
-    using:
-      foreign_key_constraint_on:
-        column: organization_id
-        table:
-          name: inbox_events
-          schema: public
-  - name: workflow_artifacts
-    using:
-      foreign_key_constraint_on:
-        column: organization_id
-        table:
-          name: workflow_artifacts
-          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      columns:
+        - name
+        - quota_limit
 select_permissions:
   - role: user
     permission:
@@ -56,14 +49,6 @@ select_permissions:
           user_id:
             _eq: X-Hasura-User-Id
       allow_aggregations: true
-insert_permissions:
-  - role: user
-    permission:
-      columns:
-        - name
-        - quota_limit
-      check: {}
-
 update_permissions:
   - role: user
     permission:
@@ -77,6 +62,16 @@ update_permissions:
             - role:
                 _eq: owner
       check:
+        org_members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner
+delete_permissions:
+  - role: user
+    permission:
+      filter:
         org_members:
           _and:
             - user_id:

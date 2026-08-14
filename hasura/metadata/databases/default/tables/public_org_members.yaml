@@ -27,21 +27,27 @@ insert_permissions:
         - organization_id
         - user_id
         - role
-      # Allow user to add themselves to any org they just created (bootstrap).
-      # Role is restricted to 'owner' only when user_id matches the inserting user.
+      # Allows self-bootstrap as owner OR owner adding members to their org
       check:
-        _and:
-          - user_id:
-              _eq: X-Hasura-User-Id
-          - role:
-              _in:
-                - owner
-
+        _or:
+          - _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+          - organization:
+              org_members:
+                _and:
+                  - user_id:
+                      _eq: X-Hasura-User-Id
+                  - role:
+                      _eq: owner
 update_permissions:
   - role: user
     permission:
       columns:
         - role
+      # Only org owners can update member roles
       filter:
         organization:
           org_members:
@@ -61,6 +67,7 @@ update_permissions:
 delete_permissions:
   - role: user
     permission:
+      # Only org owners can remove members from org
       filter:
         organization:
           org_members:

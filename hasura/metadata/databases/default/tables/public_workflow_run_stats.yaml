@@ -11,15 +11,6 @@ object_relationships:
         remote_table:
           name: workflows
           schema: public
-  - name: organization
-    using:
-      manual_configuration:
-        column_mapping:
-          organization_id: id
-        insertion_order: null
-        remote_table:
-          name: organizations
-          schema: public
 select_permissions:
   - role: user
     permission:
@@ -32,8 +23,8 @@ select_permissions:
         - success_rate
         - average_run_duration_seconds
       filter:
-        organization:
-          org_members:
-            user_id:
-              _eq: X-Hasura-User-Id
-      allow_aggregations: true
+        workflow:
+          organization:
+            org_members:
+              user_id:
+                _eq: X-Hasura-User-Id

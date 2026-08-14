@@ -5,14 +5,25 @@ object_relationships:
   - name: workflow
     using:
       foreign_key_constraint_on: workflow_id
-array_relationships:
-  - name: webhook_idempotency_records
-    using:
-      foreign_key_constraint_on:
-        column: trigger_id
-        table:
-          name: webhook_idempotency
-          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        workflow:
+          organization:
+            org_members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _in:
+                      - owner
+                      - editor
+      columns:
+        - workflow_id
+        - type
+        - config
+        - enabled
 select_permissions:
   - role: user
     permission:
@@ -30,69 +41,7 @@ select_permissions:
             org_members:
               user_id:
                 _eq: X-Hasura-User-Id
-insert_permissions:
-  - role: user
-    permission:
-      columns:
-        - workflow_id
-        - type
-        - config
-        - enabled
-      check:
-        workflow:
-          organization:
-            org_members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: owner
-  - role: user
-    permission:
-      columns:
-        - workflow_id
-        - type
-        - config
-        - enabled
-      check:
-        _and:
-          - workflow:
-              organization:
-                org_members:
-                  _and:
-                    - user_id:
-                        _eq: X-Hasura-User-Id
-                    - role:
-                        _in:
-                          - owner
-                          - editor
-          - type:
-              _neq: webhook
 update_permissions:
-  - role: user
-    permission:
-      columns:
-        - type
-        - config
-        - enabled
-      filter:
-        workflow:
-          organization:
-            org_members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: owner
-      check:
-        workflow:
-          organization:
-            org_members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: owner
   - role: user
     permission:
       columns:
@@ -111,19 +60,16 @@ update_permissions:
                       - owner
                       - editor
       check:
-        _and:
-          - workflow:
-              organization:
-                org_members:
-                  _and:
-                    - user_id:
-                        _eq: X-Hasura-User-Id
-                    - role:
-                        _in:
-                          - owner
-                          - editor
-          - type:
-              _neq: webhook
+        workflow:
+          organization:
+            org_members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _in:
+                      - owner
+                      - editor
 delete_permissions:
   - role: user
     permission:
@@ -135,20 +81,6 @@ delete_permissions:
                 - user_id:
                     _eq: X-Hasura-User-Id
                 - role:
-                    _eq: owner
-  - role: user
-    permission:
-      filter:
-        _and:
-          - workflow:
-              organization:
-                org_members:
-                  _and:
-                    - user_id:
-                        _eq: X-Hasura-User-Id
-                    - role:
-                        _in:
-                          - owner
-                          - editor
-          - type:
-              _neq: webhook
+                    _in:
+                      - owner
+                      - editor

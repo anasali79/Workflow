@@ -4,6 +4,13 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { useUserData } from "@nhost/react";
 
+export interface MemberRecord {
+  id: string;
+  user_id: string;
+  role: "owner" | "editor" | "viewer";
+  created_at: string;
+}
+
 export interface OrgMemberInfo {
   id: string;
   organization_id: string;
@@ -13,6 +20,7 @@ export interface OrgMemberInfo {
     name: string;
     quota_limit: number;
     quota_used: number;
+    org_members: MemberRecord[];
   };
 }
 
@@ -27,6 +35,12 @@ const USER_ORGS_QUERY = gql`
         name
         quota_limit
         quota_used
+        org_members(order_by: { created_at: asc }) {
+          id
+          user_id
+          role
+          created_at
+        }
       }
     }
   }

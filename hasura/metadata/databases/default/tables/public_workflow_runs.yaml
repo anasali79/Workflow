@@ -13,13 +13,6 @@ array_relationships:
         table:
           name: step_runs
           schema: public
-  - name: workflow_artifacts
-    using:
-      foreign_key_constraint_on:
-        column: workflow_run_id
-        table:
-          name: workflow_artifacts
-          schema: public
 select_permissions:
   - role: user
     permission:
@@ -41,4 +34,3 @@ select_permissions:
             org_members:
               user_id:
                 _eq: X-Hasura-User-Id
-      allow_aggregations: true

@@ -15,6 +15,13 @@ object_relationships:
           name: workflow_run_stats
           schema: public
 array_relationships:
+  - name: workflow_runs
+    using:
+      foreign_key_constraint_on:
+        column: workflow_id
+        table:
+          name: workflow_runs
+          schema: public
   - name: workflow_steps
     using:
       foreign_key_constraint_on:
@@ -29,13 +36,27 @@ array_relationships:
         table:
           name: workflow_triggers
           schema: public
-  - name: workflow_runs
-    using:
-      foreign_key_constraint_on:
-        column: workflow_id
-        table:
-          name: workflow_runs
-          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        organization:
+          org_members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _in:
+                    - owner
+                    - editor
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - organization_id
+        - name
+        - description
+        - status
+        - created_by
 select_permissions:
   - role: user
     permission:
@@ -54,63 +75,3 @@ select_permissions:
             user_id:
               _eq: X-Hasura-User-Id
       allow_aggregations: true
-insert_permissions:
-  - role: user
-    permission:
-      columns:
-        - organization_id
-        - name
-        - description
-        - status
-        - created_by
-      set:
-        created_by: x-hasura-user-id
-      check:
-        organization:
-          org_members:
-            _and:
-              - user_id:
-                  _eq: X-Hasura-User-Id
-              - role:
-                  _in:
-                    - owner
-                    - editor
-
-update_permissions:
-  - role: user
-    permission:
-      columns:
-        - name
-        - description
-        - status
-      filter:
-        organization:
-          org_members:
-            _and:
-              - user_id:
-                  _eq: X-Hasura-User-Id
-              - role:
-                  _in:
-                    - owner
-                    - editor
-      check:
-        organization:
-          org_members:
-            _and:
-              - user_id:
-                  _eq: X-Hasura-User-Id
-              - role:
-                  _in:
-                    - owner
-                    - editor
-delete_permissions:
-  - role: user
-    permission:
-      filter:
-        organization:
-          org_members:
-            _and:
-              - user_id:
-                  _eq: X-Hasura-User-Id
-              - role:
-                  _eq: owner
