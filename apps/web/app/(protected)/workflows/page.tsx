@@ -6,7 +6,6 @@ import { gql, useMutation, useQuery } from "@apollo/client";
 import { useAccessToken, useUserData } from "@nhost/react";
 import { useOrganization } from "@/hooks/use-organization";
 import { AppShell } from "@/components/layout/app-shell";
-import { UserMenu } from "@/components/auth/user-menu";
 
 const WORKFLOWS_LIST_QUERY = gql`
   query GetWorkflowsList($organizationId: uuid!) {
@@ -145,7 +144,6 @@ export default function WorkflowsPage() {
       description="Build, configure and run AI automation pipelines"
       actions={
         <div className="flex items-center gap-3">
-          <UserMenu />
           <button
             disabled={isViewer}
             onClick={() => setShowCreate(true)}

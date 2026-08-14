@@ -33,132 +33,189 @@ export function LoginForm() {
     }
   }
 
+  function fillDemo() {
+    setEmail("owner-orga@example.com");
+    setPassword("password123");
+  }
+
   const loading = isLoading || isSubmitting;
 
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)",
-      backgroundImage: "radial-gradient(ellipse 80% 60% at 50% -10%, #7c3aed15, transparent)",
-      padding: "24px",
-      fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-    }}>
-      <div style={{ width: "100%", maxWidth: "400px" }}>
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: "36px" }}>
-          <div style={{
-            width: "52px", height: "52px", borderRadius: "16px",
-            background: "linear-gradient(135deg, var(--accent), #6d28d9)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "24px", margin: "0 auto 16px",
-            boxShadow: "0 0 0 1px #7c3aed40, 0 8px 32px #7c3aed30",
-          }}>
-            ⚡
+    <div className="min-h-screen w-full flex flex-col justify-between bg-white text-slate-900 relative overflow-hidden font-sans">
+      {/* ── Background Subtle Concentric Ring Ripple Effect ── */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+        <div className="w-[500px] h-[500px] rounded-full border border-indigo-100 animate-pulse" />
+        <div className="absolute w-[750px] h-[750px] rounded-full border border-slate-100" />
+        <div className="absolute w-[1000px] h-[1000px] rounded-full border border-slate-100/60" />
+      </div>
+
+      {/* ── Top Header Bar ── */}
+      <header className="relative z-10 w-full px-8 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200">
+            S
           </div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
-            Workflow Platform
-          </h1>
-          <p style={{ fontSize: "14px", color: "var(--muted)", marginTop: "6px" }}>
-            Sign in to your workspace
-          </p>
+          <span className="text-lg font-bold tracking-tight text-slate-900">StitchFlow</span>
         </div>
 
-        {/* Card */}
-        <div style={{
-          background: "var(--surface)", border: "1px solid var(--border-2)",
-          borderRadius: "20px", padding: "32px",
-          boxShadow: "0 24px 64px #00000060",
-        }}>
+        <Link
+          href="/login"
+          className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors"
+        >
+          👤
+        </Link>
+      </header>
+
+      {/* ── Main Centered Card Area ── */}
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-[440px] bg-white border border-slate-200/80 rounded-3xl p-10 shadow-xl shadow-slate-200/60 space-y-6">
+          {/* Top Circular Waving / Sparkle Icon */}
+          <div className="flex justify-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner border border-indigo-100">
+              👋
+            </div>
+          </div>
+
+          {/* Heading */}
+          <div className="text-center space-y-1.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Welcome back
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Sign in to your StitchFlow account
+            </p>
+          </div>
+
+          {/* One-Click Demo Quick Sign-in chip */}
+          <button
+            type="button"
+            onClick={fillDemo}
+            className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50/30 transition-all text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                ⚡
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                  One-Click Demo Login
+                </p>
+                <p className="text-[10.5px] text-slate-500 font-mono">
+                  owner-orga@example.com
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
+              Auto Fill →
+            </span>
+          </button>
+
           {isError && (
-            <div style={{
-              background: "var(--red-dim)", border: "1px solid #ef444430",
-              borderRadius: "10px", padding: "12px 14px", marginBottom: "20px",
-              fontSize: "13.5px", color: "var(--red)",
-              display: "flex", alignItems: "center", gap: "8px",
-            }}>
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-medium flex items-center gap-2">
               <span>⚠</span>
-              {error?.message ?? "Invalid credentials. Please try again."}
+              <span>{error?.message ?? "Invalid email or password. Please try again."}</span>
             </div>
           )}
 
-          <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            {/* Email */}
-            <div>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "7px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          {/* Form */}
+          <form onSubmit={onSubmit} className="space-y-5">
+            {/* Email Field */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
                 Email
               </label>
               <input
-                className="wf-input"
-                type="email" autoComplete="email" required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                type="email"
+                autoComplete="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="name@company.com"
                 disabled={loading}
               />
             </div>
 
-            {/* Password */}
-            <div>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "7px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                Password
-              </label>
-              <div style={{ position: "relative" }}>
+            {/* Password Field */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={fillDemo}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
                 <input
-                  className="wf-input"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-11 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all"
                   type={showPass ? "text" : "password"}
-                  autoComplete="current-password" required
+                  autoComplete="current-password"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   disabled={loading}
-                  style={{ paddingRight: "44px" }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
-                  style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "14px", padding: "4px" }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs p-1 transition-colors"
                 >
-                  {showPass ? "🙈" : "👁"}
+                  {showPass ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.04 10.04 0 012.122-.363c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
 
-            {/* Demo credentials hint */}
-            <div style={{ background: "var(--accent-glow)", border: "1px solid #7c3aed25", borderRadius: "10px", padding: "10px 13px", fontSize: "12px", color: "var(--muted)" }}>
-              <span style={{ color: "var(--accent-hover)", fontWeight: 600 }}>Demo:</span> owner-orga@example.com / password123
-            </div>
-
-            {/* Submit */}
+            {/* Primary Sign In Button */}
             <button
               type="submit"
               disabled={loading}
-              style={{
-                width: "100%", padding: "12px",
-                background: loading ? "var(--surface-2)" : "linear-gradient(135deg, var(--accent), #6d28d9)",
-                color: "white", border: "none", borderRadius: "12px",
-                fontSize: "14.5px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-                transition: "opacity 0.15s, transform 0.1s",
-                boxShadow: loading ? "none" : "0 4px 16px var(--accent-glow)",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-              }}
+              className="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               {loading ? (
                 <>
-                  <span style={{ width: "14px", height: "14px", border: "2px solid #ffffff40", borderTopColor: "white", borderRadius: "50%", display: "inline-block", animation: "spin 1s linear infinite" }} />
-                  Signing in…
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <span>Signing in…</span>
                 </>
-              ) : "Sign in →"}
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <span>→</span>
+                </>
+              )}
             </button>
           </form>
 
-          <p style={{ marginTop: "20px", textAlign: "center", fontSize: "13px", color: "var(--muted)" }}>
-            Need an account?{" "}
-            <Link href="/signup" style={{ color: "var(--accent-hover)", fontWeight: 600 }}>
-              Sign up
-            </Link>
-          </p>
+          {/* Footer Link */}
+          <div className="pt-2 text-center">
+            <p className="text-xs text-slate-500">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-indigo-600 font-bold hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer spacer */}
+      <footer className="py-4 text-center text-[11px] text-slate-400">
+        StitchFlow Agent Platform &copy; 2026
+      </footer>
     </div>
   );
 }

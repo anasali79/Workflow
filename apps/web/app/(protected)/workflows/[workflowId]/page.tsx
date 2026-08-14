@@ -7,7 +7,6 @@ import { gql, useMutation, useQuery } from "@apollo/client";
 import { useAccessToken } from "@nhost/react";
 import { useOrganization } from "@/hooks/use-organization";
 import { AppShell } from "@/components/layout/app-shell";
-import { UserMenu } from "@/components/auth/user-menu";
 
 const WORKFLOW_DETAIL_QUERY = gql`
   query GetWorkflowDetail($workflowId: uuid!) {
@@ -716,36 +715,23 @@ export default function WorkflowDetailPage({ params }: Props) {
       title={workflow.name}
       description={workflow.description || "Visual Pipeline Builder & Step Configuration"}
       actions={
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <UserMenu />
+        <div className="flex items-center gap-3">
           <Link href={`/workflows/${workflowId}/runs`}>
-            <span style={{
-              padding: "8px 16px", borderRadius: "10px", border: "1px solid var(--border-2)",
-              fontSize: "13px", fontWeight: 600, color: "var(--muted)", cursor: "pointer", display: "inline-block",
-            }}>
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--border-2)] bg-[var(--bg-3)] text-xs font-semibold text-[var(--foreground)] hover:border-[#7c75f3] cursor-pointer transition-colors">
               📊 View Runs
             </span>
           </Link>
           <button
             disabled={isViewer || triggering}
             onClick={handleRun}
-            style={{
-              padding: "8px 18px", borderRadius: "10px", border: "none",
-              background: "var(--accent)", color: "white", fontWeight: 600, fontSize: "13px",
-              cursor: isViewer || triggering ? "not-allowed" : "pointer", opacity: isViewer ? 0.5 : 1,
-            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#7c75f3] hover:bg-[#6b63eb] text-white text-xs font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {triggering ? "Starting…" : "▶ Execute Pipeline"}
+            {triggering ? "⚙ Starting…" : "▶ Run Workflow"}
           </button>
           <button
             disabled={isViewer || deletingWorkflow}
             onClick={handleDeleteWorkflow}
-            style={{
-              padding: "8px 14px", borderRadius: "10px",
-              border: "1px solid var(--red-dim)", background: "var(--red-dim)",
-              fontSize: "13px", fontWeight: 600, color: "var(--red)",
-              cursor: isViewer || deletingWorkflow ? "not-allowed" : "pointer",
-            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#ff4d4d]/30 bg-[#ff4d4d]/10 text-[#ff4d4d] text-xs font-bold hover:bg-[#ff4d4d]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Delete entire workflow"
           >
             {deletingWorkflow ? "Deleting…" : "🗑 Delete"}

@@ -4,8 +4,6 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignUpEmailPassword } from "@nhost/react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 export function SignupForm() {
   const router = useRouter();
@@ -38,7 +36,7 @@ export function SignupForm() {
     });
 
     if (result.needsEmailVerification) {
-      setInfo("Account created. Check your email to verify before signing in.");
+      setInfo("Account created! Check your email to verify before signing in.");
       return;
     }
 
@@ -51,73 +49,142 @@ export function SignupForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Workflow Agent</p>
-        <h1 className="mt-2 text-2xl font-semibold">Create account</h1>
-        <p className="mt-1 text-sm text-muted">Join your organization workspace.</p>
+    <div className="min-h-screen w-full flex flex-col justify-between bg-white text-slate-900 relative overflow-hidden font-sans">
+      {/* Background Ripple */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+        <div className="w-[500px] h-[500px] rounded-full border border-indigo-100 animate-pulse" />
+        <div className="absolute w-[750px] h-[750px] rounded-full border border-slate-100" />
+        <div className="absolute w-[1000px] h-[1000px] rounded-full border border-slate-100/60" />
       </div>
 
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Display name</span>
-          <input
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-accent focus:ring-2"
-            type="text"
-            autoComplete="name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-        </label>
+      {/* Top Header */}
+      <header className="relative z-10 w-full px-8 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200">
+            S
+          </div>
+          <span className="text-lg font-bold tracking-tight text-slate-900">StitchFlow</span>
+        </div>
 
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Email</span>
-          <input
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-accent focus:ring-2"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Password</span>
-          <input
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-accent focus:ring-2"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
-        </label>
-
-        {(localError || error?.message) && !isSuccess ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger" role="alert">
-            {localError ?? error?.message}
-          </p>
-        ) : null}
-
-        {info || needsEmailVerification ? (
-          <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-accent" role="status">
-            {info ?? "Check your email to verify your account."}
-          </p>
-        ) : null}
-
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Creating account…" : "Sign up"}
-        </Button>
-      </form>
-
-      <p className="mt-5 text-sm text-muted">
-        Already have an account?{" "}
-        <Link className="font-medium text-accent hover:text-accent-hover" href="/login">
-          Sign in
+        <Link
+          href="/signup"
+          className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors"
+        >
+          ✨
         </Link>
-      </p>
-    </Card>
+      </header>
+
+      {/* Main Card */}
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-[440px] bg-white border border-slate-200/80 rounded-3xl p-10 shadow-xl shadow-slate-200/60 space-y-6">
+          <div className="flex justify-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner border border-indigo-100">
+              🚀
+            </div>
+          </div>
+
+          <div className="text-center space-y-1.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Create your account
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Join StitchFlow AI Agent Platform
+            </p>
+          </div>
+
+          {(localError || error?.message) && !isSuccess && (
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-medium flex items-center gap-2">
+              <span>⚠</span>
+              <span>{localError ?? error?.message}</span>
+            </div>
+          )}
+
+          {(info || needsEmailVerification) && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-medium flex items-center gap-2">
+              <span>✓</span>
+              <span>{info ?? "Check your email to verify your account."}</span>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Full Name
+              </label>
+              <input
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                type="text"
+                autoComplete="name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Alex Morgan"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Email
+              </label>
+              <input
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@company.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Password
+              </label>
+              <input
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
+            >
+              {isLoading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <span>Creating Account…</span>
+                </>
+              ) : (
+                <>
+                  <span>Create Account</span>
+                  <span>→</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="pt-2 text-center">
+            <p className="text-xs text-slate-500">
+              Already have an account?{" "}
+              <Link href="/login" className="text-indigo-600 font-bold hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </main>
+
+      <footer className="py-4 text-center text-[11px] text-slate-400">
+        StitchFlow Agent Platform &copy; 2026
+      </footer>
+    </div>
   );
 }
