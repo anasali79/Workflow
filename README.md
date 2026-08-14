@@ -125,7 +125,121 @@ npm run test
 npm run dev
 ```
 
-Visit `http://localhost:3000` to access the application.
+Visit `http://localhost:3000` to access the application
+
+
+Webhook trigger process
+
+The webhook endpoint queues a workflow run and returns immediately.
+
+Postman request
+
+Method: POST
+
+URL:https://<YOUR-NHOST-FUNCTIONS-HOST>/webhook-trigger?triggerId=<WEBHOOK_TRIGGER_UUID>
+
+Headers:
+
+Content-Type: application/json
+x-webhook-secret: <WEBHOOK_SECRET>
+x-idempotency-key: test-001
+
+x-idempotency-key is optional but recommended. Use a unique value for every new intended run, e.g. test-001, test-002, test-003.
+
+If the same key is sent again for the same workflow, the existing workflow_run is returned instead of creating a duplicate run.
+
+Body:
+
+{
+  "message": "hello from postman",
+  "source": "postman",
+  "input": "test workflow"
+}
+
+Expected response
+
+HTTP 202:
+
+{
+  "success": true,
+  "workflow_run_id": "RUN_UUID",
+  "status": "queued",
+  "message": "Workflow accepted for execution"
+}
+
+Flow
+
+POST webhook
+    ↓
+validate webhook secret
+    ↓
+validate trigger
+    ↓
+check idempotency key
+    ↓
+resolve workflow
+    ↓
+check quota
+    ↓
+create workflow_run
+    ↓
+create step_runs
+    ↓
+return 202
+
+The webhook handler intentionally does not execute the complete workflow synchronously. This prevents a Lambda/Nhost request from remaining open during external API calls or an approval_gate.
+
+Testing in Postman
+
+Create and enable a workflow.
+
+Add a webhook trigger.
+
+Copy the trigger UUID.
+
+Set WEBHOOK_SECRET in the Nhost function environment.
+
+Send the POST request with the trigger UUID.
+
+Set x-webhook-secret to the configured secret.
+
+Set x-idempotency-key to a unique test value such as test-001.
+
+Send JSON body.
+
+Confirm HTTP 202 and save workflow_run_id.
+
+Observe the run through the application's GraphQL subscription/UI.
+
+To intentionally create another run, change the idempotency key to test-002.
+
+Manual trigger
+
+mutation TriggerWorkflowRun($workflowId: uuid!) {
+  triggerWorkflowRun(workflow_id: $workflowId) {
+    workflow_run_id
+    status
+    message
+  }
+}
+
+Live progress
+
+Use the returned workflow_run_id with the step_runs subscription. The UI can show:
+
+pending → running → success
+                    ↘ paused → approved → running → success
+
+Environment variables
+
+Configure secrets in Nhost/Vercel environment settings:
+
+DATABASE_URL
+WEBHOOK_SECRET
+
+Also configure the selected LLM provider credentials when real LLM execution is enabled.
+
+Never commit database passwords, API keys, webhook secrets, or Hasura/Nhost admin secrets.
 
 ---
 
