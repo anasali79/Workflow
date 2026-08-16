@@ -143,6 +143,40 @@ export class DbWriteHandler implements StepHandler {
   }
 }
 
+export class JobScraperHandler implements StepHandler {
+  readonly type = "job_scraper" as const;
+
+  async execute(step: WorkflowStep, _ctx: WorkflowContext): Promise<StepHandlerResult> {
+    const domain = (step.config.domain as string) || undefined;
+    const { jobAgentService } = await import("../../job-agent/index.js");
+    const jobs = await jobAgentService.extractFreshJobs(domain);
+    return {
+      output: {
+        extractedCount: jobs.length,
+        domainFilter: domain || "All User Preferences",
+        jobs,
+      },
+    };
+  }
+}
+
+export class JobAutoApplyHandler implements StepHandler {
+  readonly type = "job_auto_apply" as const;
+
+  async execute(step: WorkflowStep, _ctx: WorkflowContext): Promise<StepHandlerResult> {
+    const minThreshold = typeof step.config.minMatchScoreThreshold === "number" ? step.config.minMatchScoreThreshold : 70;
+    const { jobAgentService } = await import("../../job-agent/index.js");
+    const result = await jobAgentService.bulkAutoApply(minThreshold);
+    return {
+      output: {
+        appliedCount: result.appliedCount,
+        thresholdUsed: minThreshold,
+        applicationLogs: result.logs,
+      },
+    };
+  }
+}
+
 export function createStepHandlers(): Map<string, StepHandler> {
   const handlers: StepHandler[] = [
     new LlmCallHandler(),
@@ -151,6 +185,8 @@ export function createStepHandlers(): Map<string, StepHandler> {
     new ApprovalGateHandler(),
     new NotifyHandler(),
     new DbWriteHandler(),
+    new JobScraperHandler(),
+    new JobAutoApplyHandler(),
   ];
   return new Map(handlers.map((h) => [h.type, h]));
 }

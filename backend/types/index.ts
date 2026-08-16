@@ -6,7 +6,9 @@ export type StepType =
   | "db_write"
   | "notify"
   | "conditional_branch"
-  | "approval_gate";
+  | "approval_gate"
+  | "job_scraper"
+  | "job_auto_apply";
 
 export type TriggerType = "manual" | "webhook" | "scheduled" | "database_event";
 

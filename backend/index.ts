@@ -15,5 +15,7 @@ export * from "./services/notifications/index.js";
 export * from "./services/workflow-engine/engine.js";
 export * from "./services/workflow-engine/repository.js";
 export * from "./services/workflow-engine/handlers/index.js";
+export * from "./services/job-agent/index.js";
+
 
 export const PLATFORM_NAME = "workflow-agent-platform" as const;
